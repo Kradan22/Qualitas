@@ -325,7 +325,6 @@
   </div>
 </div>
 
-<script src="https://alcdn.msauth.net/browser/2.38.4/js/msal-browser.min.js"></script>
 <script>
 /* ============================================================
    Beépített DEMO pillanatkép — csak példa, ha nincs élő kapcsolat.
@@ -394,6 +393,25 @@ function weekDays(date){const m=mondayOf(date);return Array.from({length:7},(_,i
    ============================================================ */
 const CFG_KEY="planner-msal-cfg";
 let pca=null, account=null, live=false, refreshTimer=null;
+
+/* MSAL könyvtár betöltése több CDN-es tartalékkal */
+const MSAL_CDNS=[
+  "https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.4/lib/msal-browser.min.js",
+  "https://unpkg.com/@azure/msal-browser@2.38.4/lib/msal-browser.min.js",
+  "https://alcdn.msauth.net/browser/2.38.4/js/msal-browser.min.js"
+];
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.async=true;s.onload=()=>res();s.onerror=()=>rej(new Error("nem tölthető: "+src));document.head.appendChild(s);});}
+let msalLoading=null;
+function ensureMsal(){
+  if(typeof msal!=="undefined") return Promise.resolve(true);
+  if(!msalLoading){
+    msalLoading=(async()=>{
+      for(const u of MSAL_CDNS){ try{ await loadScript(u); if(typeof msal!=="undefined") return true; }catch(e){ console.warn(e.message); } }
+      return typeof msal!=="undefined";
+    })();
+  }
+  return msalLoading;
+}
 function loadCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY)||"null")}catch(e){return null}}
 function saveCfg(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
 function redirectUri(){return location.origin+location.pathname;}
@@ -416,6 +434,11 @@ async function ensurePca(){
 async function connect(){
   const cfg=loadCfg();
   if(!cfg||!cfg.clientId){ openSettings(); return; }
+  setStatus("loading","Bejelentkező könyvtár betöltése…","");
+  if(!(await ensureMsal())){
+    setStatus("err","A bejelentkező könyvtár nem tölthető be","A hálózat vagy tűzfal blokkolhatja a CDN-t – próbáld másik hálózaton");
+    updateSyncButtons(); return;
+  }
   try{
     setStatus("loading","Bejelentkezés…","");
     await ensurePca();
@@ -769,10 +792,12 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
   updateSyncButtons();
   render();
   // ha van mentett konfiguráció és aktív munkamenet → automatikus élő betöltés
-  if(typeof msal!=="undefined" && loadCfg()){
+  if(loadCfg()){
     try{
-      await ensurePca();
-      if(account){ live=true; updateSyncButtons(); await refresh(true); startAutoRefresh(); }
+      if(await ensureMsal()){
+        await ensurePca();
+        if(account){ live=true; updateSyncButtons(); await refresh(true); startAutoRefresh(); }
+      }
     }catch(e){ console.warn("auto-connect kihagyva",e); }
   }
 })();

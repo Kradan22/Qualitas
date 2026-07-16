@@ -787,6 +787,12 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
 
 /* ============================================================ init ============================================================ */
 (async function boot(){
+  // Ha ez az MSAL bejelentkező felugró ablak (a Microsoft ide irányít vissza),
+  // NE bootoljuk újra az appot – az MSAL a fő ablakból olvassa ki a választ.
+  try{
+    const nested=(window.opener && window.opener!==window) || (window.parent && window.parent!==window);
+    if(nested && /[?#&](code|error|state|session_state)=/.test(location.href)) return;
+  }catch(e){}
   ingest(SNAPSHOT);
   setStatus("","Demó adatok","Beépített pillanatkép · nincs bejelentkezve");
   updateSyncButtons();

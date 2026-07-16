@@ -425,10 +425,8 @@ function initMsal(cfg){
 async function ensurePca(){
   const cfg=loadCfg();
   if(!cfg||!cfg.clientId) return null;
+  if(!(await ensureMsal())) return null;
   if(!pca) initMsal(cfg);
-  if(pca.handleRedirectPromise) { try{await pca.handleRedirectPromise();}catch(e){} }
-  const accts=pca.getAllAccounts();
-  if(accts.length) account=accts[0];
   return pca;
 }
 async function connect(){
@@ -440,13 +438,12 @@ async function connect(){
     updateSyncButtons(); return;
   }
   try{
-    setStatus("loading","Bejelentkezés…","");
     await ensurePca();
-    const res=await pca.loginPopup({scopes:["Calendars.Read"],prompt:"select_account"});
-    account=res.account; pca.setActiveAccount(account);
-    live=true;
-    await refresh(true);
-    startAutoRefresh();
+    setStatus("loading","Átirányítás a Microsoft bejelentkezéshez…","Egy pillanat…");
+    // Átirányításos (redirect) folyamat – nincs felugró ablak. Az oldal
+    // átnavigál a Microsoft bejelentkezéshez, majd visszatér ide; a
+    // folytatás a boot()-ban, a handleRedirectPromise() eredménye alapján.
+    await pca.loginRedirect({scopes:["Calendars.Read"],prompt:"select_account"});
   }catch(e){
     console.error(e);
     live=false;
@@ -457,7 +454,7 @@ async function connect(){
 async function getToken(){
   const req={scopes:["Calendars.Read"],account};
   try{ const r=await pca.acquireTokenSilent(req); return r.accessToken; }
-  catch(e){ const r=await pca.acquireTokenPopup(req); account=r.account; return r.accessToken; }
+  catch(e){ setStatus("loading","Átirányítás a bejelentkezéshez…",""); pca.acquireTokenRedirect(req); throw new Error("redirect_in_progress"); }
 }
 function isoUTC(date){return new Date(date).toISOString();}
 async function fetchCalendar(){
@@ -512,6 +509,7 @@ async function refresh(showOverlay){
     document.getElementById("foot").textContent="Élőben szinkronizálva "+account.username+" fiókból · utolsó frissítés "+hm(stamp.minutes)+" · időzóna Budapest";
     render();
   }catch(e){
+    if((e&&e.message)==="redirect_in_progress") return; // az oldal éppen átirányít
     console.error(e);
     setStatus("err","Szinkron hiba", (e.message||"").slice(0,120));
   }finally{
@@ -797,12 +795,16 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
   setStatus("","Demó adatok","Beépített pillanatkép · nincs bejelentkezve");
   updateSyncButtons();
   render();
-  // ha van mentett konfiguráció és aktív munkamenet → automatikus élő betöltés
+  // Visszatérés a Microsoft bejelentkezésből (redirect) VAGY meglévő munkamenet
   if(loadCfg()){
     try{
-      if(await ensureMsal()){
-        await ensurePca();
-        if(account){ live=true; updateSyncButtons(); await refresh(true); startAutoRefresh(); }
+      if(await ensurePca()){
+        let resp=null;
+        try{ resp=await pca.handleRedirectPromise(); }
+        catch(err){ console.error(err); setStatus("err","Bejelentkezés sikertelen",(err.errorMessage||err.message||"").slice(0,150)); updateSyncButtons(); }
+        if(resp&&resp.account) account=resp.account;
+        else { const a=pca.getAllAccounts(); if(a.length) account=a[0]; }
+        if(account){ pca.setActiveAccount(account); live=true; updateSyncButtons(); await refresh(true); startAutoRefresh(); }
       }
     }catch(e){ console.warn("auto-connect kihagyva",e); }
   }

@@ -148,14 +148,15 @@
 
   .event{position:absolute; border-radius:8px; padding:5px 8px; overflow:hidden; border:1px solid var(--meet-line); background:var(--meet-bg); color:var(--ink); box-shadow:0 1px 2px rgba(24,39,75,.08); cursor:pointer; transition:transform .1s, box-shadow .1s; border-left:3px solid var(--meet)}
   .event:hover{transform:translateY(-1px); box-shadow:var(--shadow); z-index:20}
-  .event .ev-t{font-size:12px; font-weight:650; line-height:1.25; overflow:hidden}
+  .event .ev-t{font-size:12px; font-weight:650; line-height:1.22; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; word-break:break-word; overflow-wrap:anywhere; hyphens:auto}
   .event .ev-time{font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; margin-top:1px}
   .event .ev-loc{font-size:10.5px; color:var(--muted); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .event.cat-task{background:var(--task-bg); border-color:var(--task-line); border-left-color:var(--task)}
   .event.cat-social{background:var(--social-bg); border-color:var(--social-line); border-left-color:var(--social)}
   .event.tent{border-style:dashed}
-  .event.compact{padding:3px 7px}
+  .event.compact{padding:2px 7px}
   .event.compact .ev-time,.event.compact .ev-loc{display:none}
+  .event.compact .ev-t{-webkit-line-clamp:2; line-clamp:2}
 
   .nowline{position:absolute; left:0; right:0; height:2px; background:var(--now); z-index:15; pointer-events:none}
   .nowline::before{content:""; position:absolute; left:-4px; top:-3px; width:8px; height:8px; border-radius:50%; background:var(--now)}
@@ -719,6 +720,7 @@ function buildBoard(days){
         el.innerHTML=`<div class="ev-t">${esc(ev.t)}</div><div class="ev-time">${hm(ev.startMin)}–${hm(ev.endMin)}</div>`+(ev.loc?`<div class="ev-loc">${esc(ev.loc)}</div>`:"");
         el.onclick=(e)=>{e.stopPropagation();openModal(ev);};
       }
+      el.title=(ev.isTodo?ev.text:ev.t)+" · "+hm(ev.startMin)+"–"+hm(ev.endMin);
       col.appendChild(el);
     });
     // üres helyre kattintás → új teendő beütemezése arra az időpontra

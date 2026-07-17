@@ -13,7 +13,7 @@
     --now:#e5484d; --ok:#0d8a72; --err:#e5484d;
     --shadow:0 1px 2px rgba(24,39,75,.06), 0 8px 24px -12px rgba(24,39,75,.18);
     --radius:14px;
-    --hour:58px; --gutter:60px;
+    --hour:72px; --gutter:56px;
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
   }
   @media (prefers-color-scheme:dark){
@@ -148,7 +148,7 @@
 
   .event{position:absolute; border-radius:8px; padding:5px 8px; overflow:hidden; border:1px solid var(--meet-line); background:var(--meet-bg); color:var(--ink); box-shadow:0 1px 2px rgba(24,39,75,.08); cursor:pointer; transition:transform .1s, box-shadow .1s; border-left:3px solid var(--meet)}
   .event:hover{transform:translateY(-1px); box-shadow:var(--shadow); z-index:20}
-  .event .ev-t{font-size:12px; font-weight:650; line-height:1.22; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; line-clamp:3; word-break:break-word; overflow-wrap:anywhere; hyphens:auto}
+  .event .ev-t{font-size:12px; font-weight:650; line-height:1.25; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; line-clamp:4; overflow-wrap:break-word}
   .event .ev-time{font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; margin-top:1px}
   .event .ev-loc{font-size:10.5px; color:var(--muted); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .event.cat-task{background:var(--task-bg); border-color:var(--task-line); border-left-color:var(--task)}
@@ -405,7 +405,7 @@ function ingest(raw){
 const CAT_LABEL={meet:"Megbeszélés",task:"Saját feladat",social:"Esemény"};
 
 /* ---------- Állapot ---------- */
-let GRID_START=6, GRID_END=20; const HOURH=58;
+let GRID_START=6, GRID_END=20; const HOURH=72;
 /* a rács órasávja igazodjon a látható időszak legkorábbi/legkésőbbi tételéhez */
 function computeRange(days){
   let minS=7*60, maxE=19*60;

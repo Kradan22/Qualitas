@@ -404,7 +404,19 @@ function ingest(raw){
 const CAT_LABEL={meet:"Megbeszélés",task:"Saját feladat",social:"Esemény"};
 
 /* ---------- Állapot ---------- */
-const GRID_START=6, GRID_END=20, HOURH=58;
+let GRID_START=6, GRID_END=20; const HOURH=58;
+/* a rács órasávja igazodjon a látható időszak legkorábbi/legkésőbbi tételéhez */
+function computeRange(days){
+  let minS=7*60, maxE=19*60;
+  days.forEach(dd=>{
+    const k=keyOf(dd);
+    (BY_DAY[k]||[]).filter(e=>!e.allday).forEach(e=>{minS=Math.min(minS,e.startMin);maxE=Math.max(maxE,e.endMin);});
+    scheduledTodos(k).forEach(t=>{minS=Math.min(minS,t.startMin);maxE=Math.max(maxE,t.endMin);});
+  });
+  GRID_START=Math.max(0,Math.floor(minS/60));
+  GRID_END=Math.min(24,Math.ceil(maxE/60));
+  if(GRID_END-GRID_START<6) GRID_END=Math.min(24,GRID_START+6);
+}
 let view="week", cursor=new Date(), selectedKey=keyOf(new Date());
 
 /* ---------- Dátumműveletek ---------- */
@@ -638,6 +650,7 @@ function relDay(date){
 }
 function buildBoard(days){
   const todayKey=keyOf(new Date()), cols=days.length;
+  computeRange(days);
   const overlay=document.getElementById("boardOverlay");
   board.innerHTML=""; board.appendChild(overlay);
 

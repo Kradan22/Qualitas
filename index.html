@@ -11,6 +11,8 @@
     --social:#b0328c; --social-bg:#fceaf6; --social-line:#f2c9e7;
     --tent:#b5771a; --tent-bg:#fdf3e2; --tent-line:#f0dcae;
     --now:#e5484d; --ok:#0d8a72; --err:#e5484d;
+    /* tervezési kategóriák (téma-független accentek, a háttér color-mix-szel igazodik) */
+    --cat-task:#8a94a6; --cat-dev:#7b61ff; --cat-ops:#2596d1; --cat-ana:#10b981; --cat-sal:#f0942b;
     --shadow:0 1px 2px rgba(24,39,75,.06), 0 8px 24px -12px rgba(24,39,75,.18);
     --radius:14px;
     --hour:72px; --gutter:56px;
@@ -207,15 +209,56 @@
   .todo .sched:hover{border-color:var(--task); color:var(--task)}
   .todo-empty{color:var(--faint); font-size:12.5px; text-align:center; padding:8px 0 2px; line-height:1.5}
 
-  /* beütemezett teendő blokk a rácson */
-  .event.todo-block{background:var(--task-bg); border:1px dashed var(--task); border-left:3px solid var(--task); color:var(--ink)}
-  .event.todo-block .ev-t{padding-right:16px}
-  .event.todo-block .tb-check{position:absolute; top:4px; right:5px; width:16px; height:16px; border:1.5px solid var(--task); border-radius:5px; display:grid; place-items:center; font-size:11px; color:#fff; background:var(--surface); line-height:1}
-  .event.todo-block.done{opacity:.6}
-  .event.todo-block.done .tb-check{background:var(--task)}
-  .event.todo-block.done .ev-t{text-decoration:line-through}
+  /* kategória-színek hordozó osztálya (--c) */
+  .k-task{--c:var(--cat-task)} .k-dev{--c:var(--cat-dev)} .k-ops{--c:var(--cat-ops)} .k-ana{--c:var(--cat-ana)} .k-sal{--c:var(--cat-sal)}
+  /* beütemezett kategória-blokk a rácson */
+  .event.blk{background:color-mix(in srgb,var(--c,var(--cat-task)) 15%,var(--surface)); border:1px solid color-mix(in srgb,var(--c,var(--cat-task)) 34%,var(--surface)); border-left:3px solid var(--c,var(--cat-task)); color:var(--ink)}
+  .event.blk .ev-t{padding-right:16px}
+  .event.blk .tb-check{position:absolute; top:4px; right:5px; width:16px; height:16px; border:1.5px solid var(--c,var(--cat-task)); border-radius:5px; display:grid; place-items:center; font-size:11px; color:#fff; background:var(--surface); line-height:1}
+  .event.blk.done{opacity:.62}
+  .event.blk.done .tb-check{background:var(--c,var(--cat-task))}
+  .event.blk.done .ev-t{text-decoration:line-through}
   .col{cursor:copy}
   .col .event{cursor:pointer}
+
+  /* havi nézet */
+  .monthhead{display:grid; grid-template-columns:repeat(7,1fr); border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--surface); z-index:5}
+  .mh-cell{padding:9px 6px; text-align:center; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; border-right:1px solid var(--line)}
+  .mh-cell:last-child{border-right:0}
+  .monthgrid{display:grid; grid-template-columns:repeat(7,1fr)}
+  .mcell{min-height:112px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:5px 5px 7px; display:flex; flex-direction:column; gap:3px; cursor:pointer; overflow:hidden}
+  .mcell:nth-child(7n){border-right:0}
+  .mcell:hover{background:var(--surface-2)}
+  .mcell.other{background:var(--surface-2)}
+  .mcell.other .mnum{color:var(--faint)}
+  .mcell.today .mnum{background:var(--accent); color:#fff}
+  .mcell.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+  .mnum{align-self:flex-start; font-size:12.5px; font-weight:700; min-width:22px; height:22px; display:grid; place-items:center; border-radius:50%}
+  .mchips{display:flex; flex-direction:column; gap:2px; overflow:hidden}
+  .mchip{font-size:10.5px; line-height:1.3; padding:1px 5px; border-radius:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; font-variant-numeric:tabular-nums}
+  .mchip.ev{background:var(--surface-3); color:var(--ink-soft); border-left:3px solid var(--meet)}
+  .mchip.ev.cat-task{border-left-color:var(--task)} .mchip.ev.cat-social{border-left-color:var(--social)}
+  .mchip.mblk{background:color-mix(in srgb,var(--c,var(--cat-task)) 18%,var(--surface)); color:var(--ink); border-left:3px solid var(--c,var(--cat-task))}
+  .mchip.mblk.done{opacity:.55; text-decoration:line-through}
+  .mmore{font-size:10px; color:var(--muted); padding-left:4px; margin-top:1px}
+
+  /* idő-tervező összegzés */
+  .sumhint{font-size:12px; color:var(--muted); margin-bottom:10px}
+  .sumrow{display:flex; align-items:center; gap:9px; padding:4px 0}
+  .sumrow .slab{font-size:12.5px; color:var(--ink-soft); width:112px; display:flex; align-items:center; gap:7px; flex:0 0 auto}
+  .sumrow .sdot{width:10px; height:10px; border-radius:3px; background:var(--c,var(--cat-task)); flex:0 0 auto}
+  .sbar{flex:1; height:8px; background:var(--surface-3); border-radius:6px; overflow:hidden}
+  .sbar>span{display:block; height:100%; background:var(--c,var(--cat-task)); border-radius:6px; transition:width .2s}
+  .sval{font-size:12px; font-weight:650; color:var(--ink); min-width:46px; text-align:right; font-variant-numeric:tabular-nums; flex:0 0 auto}
+  .sumtotal{font-size:12px; color:var(--muted); margin-top:10px; padding-top:9px; border-top:1px solid var(--line); display:flex; justify-content:space-between}
+  .sumtotal b{color:var(--ink)}
+
+  /* kategória chipek a szerkesztőben + listadot */
+  .cat-opts{display:flex; gap:6px; flex-wrap:wrap}
+  .cat-chip{border:1px solid var(--line); background:var(--surface-2); border-radius:20px; padding:6px 11px; font-size:12px; font-weight:600; color:var(--ink-soft); display:inline-flex; align-items:center; gap:6px; font-family:inherit}
+  .cat-chip::before{content:""; width:9px; height:9px; border-radius:3px; background:var(--c,var(--cat-task))}
+  .cat-chip.sel{border-color:var(--c,var(--cat-task)); background:color-mix(in srgb,var(--c,var(--cat-task)) 15%,var(--surface)); color:var(--ink)}
+  .todo .kdot{width:9px; height:9px; border-radius:3px; background:var(--c,var(--cat-task)); flex:0 0 auto}
 
   /* teendő-szerkesztő mező-elemek */
   .te-day{font-size:12.5px; color:var(--muted); margin:-4px 0 2px}
@@ -268,6 +311,7 @@
       <div class="seg" role="group" aria-label="Nézet">
         <button id="viewDay" aria-pressed="false">Nap</button>
         <button id="viewWeek" aria-pressed="true">Hét</button>
+        <button id="viewMonth" aria-pressed="false">Hónap</button>
       </div>
       <div class="nav">
         <button class="iconbtn" id="prev" aria-label="Előző">‹</button>
@@ -301,6 +345,11 @@
     </div>
 
     <aside class="side">
+      <div class="card" id="summaryCard">
+        <h2>Idő-tervezés</h2>
+        <div class="sumhint" id="sumHint">Tervezett órák kategóriánként</div>
+        <div id="summaryBody"></div>
+      </div>
       <div class="card">
         <h2 id="agendaTitle">Napi program</h2>
         <div class="card-sub" id="agendaSub"></div>
@@ -404,6 +453,19 @@ function ingest(raw){
 }
 const CAT_LABEL={meet:"Megbeszélés",task:"Saját feladat",social:"Esemény"};
 
+/* Tervezési kategóriák (időblokkok) */
+const BLOCK_CATS={
+  dev:{label:"Fejlesztés"},
+  ops:{label:"Operatív vezetés"},
+  ana:{label:"Elemzés"},
+  sal:{label:"Sales"},
+  task:{label:"Egyéb / teendő"}
+};
+const BLOCK_ORDER=["dev","ops","ana","sal","task"];
+function getLastKind(){const k=localStorage.getItem("planner-lastkind");return BLOCK_CATS[k]?k:"dev";}
+function setLastKind(k){try{localStorage.setItem("planner-lastkind",k)}catch(e){}}
+function hoursFmt(mins){ if(!mins) return "0"; const h=mins/60; const s=(Math.round(h*10)/10).toString().replace(".",","); return s+" ó"; }
+
 /* ---------- Állapot ---------- */
 let GRID_START=6, GRID_END=20; const HOURH=72;
 /* a rács órasávja igazodjon a látható időszak legkorábbi/legkésőbbi tételéhez */
@@ -425,6 +487,16 @@ function localMidnightUTC(y,mo,d){return new Date(Date.UTC(y,mo-1,d,0,0,0));}
 function shiftDays(date,n){const l=local(date);return new Date(Date.UTC(l.y,l.mo-1,l.d+n,12,0,0));}
 function mondayOf(date){const dow=dowOf(date);const diff=(dow+6)%7;return shiftDays(date,-diff);}
 function weekDays(date){const m=mondayOf(date);return Array.from({length:7},(_,i)=>shiftDays(m,i));}
+function shiftMonth(date,n){const l=local(date);return new Date(Date.UTC(l.y,l.mo-1+n,Math.min(l.d,28),12));}
+function monthDays(date){
+  const l=local(date);
+  const first=new Date(Date.UTC(l.y,l.mo-1,1,12));
+  const gridStart=mondayOf(first);
+  const last=new Date(Date.UTC(l.y,l.mo,0,12)); // hónap utolsó napja
+  const span=Math.round((localMidnightUTC(local(last).y,local(last).mo,local(last).d)-localMidnightUTC(local(gridStart).y,local(gridStart).mo,local(gridStart).d))/864e5)+1;
+  const weeks=Math.ceil(span/7);
+  return Array.from({length:weeks*7},(_,i)=>shiftDays(gridStart,i));
+}
 
 /* ============================================================
    MICROSOFT GRAPH ÉLŐ SZINKRON (MSAL)
@@ -617,9 +689,14 @@ function periodEventCounts(days){
 function render(){
   document.getElementById("viewDay").setAttribute("aria-pressed",view==="day");
   document.getElementById("viewWeek").setAttribute("aria-pressed",view==="week");
-  const days = view==="week" ? weekDays(cursor) : [cursor];
+  document.getElementById("viewMonth").setAttribute("aria-pressed",view==="month");
+  const days = view==="month" ? monthDays(cursor) : (view==="week" ? weekDays(cursor) : [cursor]);
   const pl=document.getElementById("periodLabel"), ps=document.getElementById("periodSub");
-  if(view==="week"){
+  if(view==="month"){
+    const l=local(cursor);
+    pl.textContent=`${l.y}. ${HU_MON[l.mo-1]}`;
+    ps.textContent = (l.y===local(new Date()).y && l.mo===local(new Date()).mo) ? "Aktuális hónap" : "";
+  }else if(view==="week"){
     const a=local(days[0]), b=local(days[6]);
     const range = a.mo===b.mo ? `${HU_MON[a.mo-1]} ${a.d}–${b.d}.` : `${HU_MON[a.mo-1]} ${a.d}. – ${HU_MON[b.mo-1]} ${b.d}.`;
     pl.textContent=`${a.y}. ${range}`; ps.textContent=weekBadge(days[0]);
@@ -634,7 +711,54 @@ function render(){
     `<span class="legend"><span class="dot" style="background:var(--meet)"></span> ${c.meet} megbeszélés</span>`+
     `<span class="legend"><span class="dot" style="background:var(--task)"></span> ${c.task} feladat</span>`+
     (c.social?`<span class="legend"><span class="dot" style="background:var(--social)"></span> ${c.social} esemény</span>`:"");
-  buildBoard(days); renderAgenda(); renderTodos();
+  if(view==="month") buildMonth(days); else buildBoard(days);
+  renderSummary(days); renderAgenda(); renderTodos();
+}
+
+/* ---------- Havi nézet ---------- */
+function buildMonth(days){
+  const overlay=document.getElementById("boardOverlay");
+  board.innerHTML=""; board.appendChild(overlay);
+  const todayKey=keyOf(new Date()), curMonth=local(cursor).mo;
+  const head=document.createElement("div"); head.className="monthhead";
+  ["Hétfő","Kedd","Szerda","Csüt.","Péntek","Szo.","Vas."].forEach(d=>{const c=document.createElement("div");c.className="mh-cell";c.textContent=d;head.appendChild(c);});
+  board.appendChild(head);
+  const gm=document.createElement("div"); gm.className="monthgrid";
+  days.forEach(dd=>{
+    const k=keyOf(dd), dl=local(dd);
+    const cell=document.createElement("div");
+    cell.className="mcell"+(dl.mo!==curMonth?" other":"")+(k===todayKey?" today":"")+(k===selectedKey?" sel":"");
+    const items=[];
+    (BY_DAY[k]||[]).forEach(e=>items.push({s:e.allday?-1:e.startMin,ev:e}));
+    scheduledTodos(k).forEach(b=>items.push({s:b.startMin,blk:b}));
+    items.sort((a,b)=>a.s-b.s);
+    const shown=items.slice(0,4);
+    let chips="";
+    shown.forEach(it=>{
+      if(it.ev) chips+=`<div class="mchip ev cat-${it.ev.cat}">${it.ev.allday?"":hm(it.ev.startMin)+" "}${esc(it.ev.t)}</div>`;
+      else chips+=`<div class="mchip mblk k-${it.blk.kind}${it.blk.done?" done":""}">${hm(it.blk.startMin)} ${esc(it.blk.text)}</div>`;
+    });
+    if(items.length>4) chips+=`<div class="mmore">+${items.length-4} további</div>`;
+    cell.innerHTML=`<div class="mnum">${dl.d}</div><div class="mchips">${chips}</div>`;
+    cell.onclick=()=>{ selectedKey=k; cursor=new Date(Date.UTC(dl.y,dl.mo-1,dl.d,12)); view="day"; render(); };
+    gm.appendChild(cell);
+  });
+  board.appendChild(gm);
+}
+
+/* ---------- Idő-tervező összegzés ---------- */
+function renderSummary(days){
+  const sums={}; BLOCK_ORDER.forEach(k=>sums[k]=0); let total=0;
+  days.forEach(dd=>{ loadTodosFor(keyOf(dd)).forEach(it=>{ if(typeof it.time==="number"){ const kind=BLOCK_CATS[it.kind]?it.kind:"task"; const dur=it.dur||30; sums[kind]+=dur; total+=dur; } }); });
+  const scope = view==="month"?"ebben a hónapban":(view==="week"?"ezen a héten":"ma");
+  document.getElementById("sumHint").textContent = total? `Tervezett órák kategóriánként — ${scope}` : `Még nincs beütemezett időblokk ${scope}.`;
+  const max=Math.max(60,...BLOCK_ORDER.map(k=>sums[k]));
+  const body=document.getElementById("summaryBody");
+  body.innerHTML = BLOCK_ORDER.filter(k=>k!=="task"||sums.task>0).map(k=>
+    `<div class="sumrow k-${k}"><div class="slab"><span class="sdot"></span>${BLOCK_CATS[k].label}</div>`+
+    `<div class="sbar"><span style="width:${Math.round(sums[k]/max*100)}%"></span></div>`+
+    `<div class="sval">${hoursFmt(sums[k])}</div></div>`
+  ).join("") + `<div class="sumtotal"><span>Összes tervezett idő</span><b>${hoursFmt(total)}</b></div>`;
 }
 function weekBadge(monday){
   const l=local(monday); const d=new Date(Date.UTC(l.y,l.mo-1,l.d));
@@ -711,7 +835,7 @@ function buildBoard(days){
       el.style.left=`calc(${(pos.col/pos.lanes)*100}% + 3px)`;
       el.style.width=`calc(${(1/pos.lanes)*100}% - 6px)`;
       if(ev.isTodo){
-        el.className="event todo-block"+(ev.done?" done":"")+(hgt<38?" compact":"");
+        el.className="event blk k-"+(ev.kind||"task")+(ev.done?" done":"")+(hgt<38?" compact":"");
         el.innerHTML=`<div class="tb-check">${ev.done?"✓":""}</div><div class="ev-t">${esc(ev.text)}</div><div class="ev-time">${hm(ev.startMin)}–${hm(ev.endMin)}</div>`;
         el.querySelector(".tb-check").onclick=(e)=>{e.stopPropagation();const a=loadTodosFor(ev.dayKey);if(a[ev.todoIdx]){a[ev.todoIdx].done=!a[ev.todoIdx].done;saveTodosFor(ev.dayKey,a);render();}};
         el.onclick=(e)=>{e.stopPropagation();openTodoEditor(ev.dayKey,ev.todoIdx);};
@@ -803,6 +927,7 @@ function saveTodos(a){saveTodosFor(currentDayKey(),a);}
 function scheduledTodos(k){
   return loadTodosFor(k).map((it,idx)=>({it,idx})).filter(x=>typeof x.it.time==="number")
     .map(x=>({isTodo:true,dayKey:k,todoIdx:x.idx,text:x.it.text,done:!!x.it.done,cat:"todo",
+              kind:BLOCK_CATS[x.it.kind]?x.it.kind:"task",
               startMin:x.it.time,endMin:x.it.time+(x.it.dur||30)}));
 }
 function renderTodos(){
@@ -814,9 +939,11 @@ function renderTodos(){
   items.forEach((it,idx)=>{
     const row=document.createElement("div"); row.className="todo"+(it.done?" done":"");
     const scheduled=typeof it.time==="number";
+    const kind=BLOCK_CATS[it.kind]?it.kind:"task";
     row.innerHTML=`<div class="check">${it.done?"✓":""}</div>`+
+      `<span class="kdot k-${kind}" title="${BLOCK_CATS[kind].label}"></span>`+
       `<div class="txt">${esc(it.text)}</div>`+
-      `<button class="sched${scheduled?" set":""}" title="Beütemezés a naptárba">${scheduled?"🕘 "+hm(it.time):"🗓 Beütemez"}</button>`+
+      `<button class="sched${scheduled?" set":""}" title="Beütemezés / kategória">${scheduled?"🕘 "+hm(it.time):"🗓 Időzít"}</button>`+
       `<button class="del" aria-label="Törlés">×</button>`;
     row.querySelector(".check").onclick=()=>{const a=loadTodos();a[idx].done=!a[idx].done;saveTodos(a);render();};
     row.querySelector(".txt").onclick=()=>{const a=loadTodos();a[idx].done=!a[idx].done;saveTodos(a);render();};
@@ -833,41 +960,45 @@ document.getElementById("todoInput").addEventListener("keydown",e=>{if(e.key==="
 function parseTimeInput(v){if(!v||v.indexOf(":")<0)return 540;const p=v.split(":");return (+p[0])*60+(+p[1]||0);}
 function openTodoEditor(dayKey,idx){
   const it=loadTodosFor(dayKey)[idx]; if(!it)return;
-  showTodoModal(dayKey,idx,it.text,typeof it.time==="number"?it.time:540,it.dur||30,!!it.done,typeof it.time==="number");
+  showTodoModal(dayKey,idx,it.text,typeof it.time==="number"?it.time:540,it.dur||60,!!it.done,typeof it.time==="number",BLOCK_CATS[it.kind]?it.kind:"task");
 }
-function openNewTodo(dayKey,timeMin){ showTodoModal(dayKey,-1,"",timeMin,30,false,true); }
-function showTodoModal(dayKey,idx,text,timeMin,dur,done,scheduled){
-  const DURS=[15,30,45,60,90];
+function openNewTodo(dayKey,timeMin){ showTodoModal(dayKey,-1,"",timeMin,60,false,true,getLastKind()); }
+function showTodoModal(dayKey,idx,text,timeMin,dur,done,scheduled,kind){
+  const DURS=[15,30,45,60,90,120];
   const [Y,MO,D]=dayKey.split("-").map(Number);
   const dObj=new Date(Date.UTC(Y,MO-1,D,12));
-  let selDur=dur;
+  let selDur=dur, selKind=BLOCK_CATS[kind]?kind:"task";
   const m=document.getElementById("modal");
   m.innerHTML=
     `<button class="m-close" id="mClose" aria-label="Bezárás">×</button>`+
-    `<div class="m-cat">Teendő a naptárban</div>`+
-    `<h3 style="margin-bottom:6px">${idx<0?"Új teendő időponttal":"Teendő időzítése"}</h3>`+
+    `<div class="m-cat">Időblokk a naptárban</div>`+
+    `<h3 style="margin-bottom:6px">${idx<0?"Új időblokk":"Időblokk szerkesztése"}</h3>`+
     `<div class="te-day">${HU_DOW[dowOf(dObj)]}, ${Y}. ${HU_MON[MO-1]} ${D}.</div>`+
-    `<div class="field"><label for="teTitle">Megnevezés</label><input class="te-title" id="teTitle" type="text" maxlength="120" value="${esc(text)}" placeholder="Mit szeretnél elvégezni?"></div>`+
+    `<div class="field"><label for="teTitle">Megnevezés</label><input class="te-title" id="teTitle" type="text" maxlength="120" value="${esc(text)}" placeholder="Pl. Termékfejlesztés, heti sales hívások…"></div>`+
+    `<div class="field"><label>Kategória</label><div class="cat-opts" id="teCat">`+
+      BLOCK_ORDER.map(k=>`<button type="button" data-k="${k}" class="cat-chip k-${k}${k===selKind?" sel":""}">${BLOCK_CATS[k].label}</button>`).join("")+
+    `</div></div>`+
     `<div class="field"><label for="teTime">Kezdés</label><input class="te-time" id="teTime" type="time" step="300" value="${hm(timeMin)}"></div>`+
     `<div class="field"><label>Hossz</label><div class="dur-opts" id="teDur">`+
-      DURS.map(x=>`<button type="button" data-d="${x}" class="${x===dur?"sel":""}">${x<60?x+" p":(x===60?"1 ó":"1,5 ó")}</button>`).join("")+
+      DURS.map(x=>`<button type="button" data-d="${x}" class="${x===dur?"sel":""}">${x<60?x+" p":(x%60?Math.floor(x/60)+" ó "+(x%60)+" p":x/60+" ó")}</button>`).join("")+
     `</div></div>`+
     `<label class="te-done"><input type="checkbox" id="teDone" ${done?"checked":""}> Kész</label>`+
     `<div class="m-actions">`+
       `<button class="primary" id="teSave">${idx<0?"Hozzáadás a naptárhoz":"Mentés"}</button>`+
       (scheduled&&idx>=0?`<button class="ghost" id="teUnsched">Levesz a naptárról</button>`:"")+
     `</div>`+
-    (idx>=0?`<div class="m-actions" style="margin-top:9px"><button class="ghost" id="teDelete" style="color:var(--now)">Teendő törlése</button></div>`:"");
+    (idx>=0?`<div class="m-actions" style="margin-top:9px"><button class="ghost" id="teDelete" style="color:var(--now)">Blokk törlése</button></div>`:"");
   m.querySelectorAll("#teDur button").forEach(b=>b.onclick=()=>{selDur=+b.dataset.d;m.querySelectorAll("#teDur button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  m.querySelectorAll("#teCat button").forEach(b=>b.onclick=()=>{selKind=b.dataset.k;m.querySelectorAll("#teCat button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
   document.getElementById("mClose").onclick=closeModal;
   document.getElementById("teSave").onclick=()=>{
-    const title=document.getElementById("teTitle").value.trim()||"Teendő";
+    const title=document.getElementById("teTitle").value.trim()||BLOCK_CATS[selKind].label;
     const t=parseTimeInput(document.getElementById("teTime").value);
     const dn=document.getElementById("teDone").checked;
     const a=loadTodosFor(dayKey);
-    if(idx<0) a.push({text:title,done:dn,time:t,dur:selDur});
-    else a[idx]={...a[idx],text:title,done:dn,time:t,dur:selDur};
-    saveTodosFor(dayKey,a); closeModal(); render();
+    if(idx<0) a.push({text:title,done:dn,time:t,dur:selDur,kind:selKind});
+    else a[idx]={...a[idx],text:title,done:dn,time:t,dur:selDur,kind:selKind};
+    saveTodosFor(dayKey,a); setLastKind(selKind); closeModal(); render();
   };
   const un=document.getElementById("teUnsched");
   if(un) un.onclick=()=>{const a=loadTodosFor(dayKey);if(a[idx]){delete a[idx].time;delete a[idx].dur;}saveTodosFor(dayKey,a);closeModal();render();};
@@ -901,10 +1032,11 @@ document.getElementById("modalBg").onclick=e=>{if(e.target.id==="modalBg")closeM
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();closeSettings();}});
 
 /* ---------- Navigáció ---------- */
-document.getElementById("viewDay").onclick=()=>{if(view==="week"){const[y,mo,d]=selectedKey.split("-").map(Number);cursor=new Date(Date.UTC(y,mo-1,d,12));}view="day";render();};
+document.getElementById("viewDay").onclick=()=>{if(view!=="day"){const[y,mo,d]=selectedKey.split("-").map(Number);cursor=new Date(Date.UTC(y,mo-1,d,12));}view="day";render();};
 document.getElementById("viewWeek").onclick=()=>{view="week";render();};
-document.getElementById("prev").onclick=()=>{cursor=shiftDays(cursor,view==="week"?-7:-1);if(view==="day")selectedKey=keyOf(cursor);render();};
-document.getElementById("next").onclick=()=>{cursor=shiftDays(cursor,view==="week"?7:1);if(view==="day")selectedKey=keyOf(cursor);render();};
+document.getElementById("viewMonth").onclick=()=>{view="month";render();};
+document.getElementById("prev").onclick=()=>{cursor=view==="month"?shiftMonth(cursor,-1):shiftDays(cursor,view==="week"?-7:-1);if(view==="day")selectedKey=keyOf(cursor);render();};
+document.getElementById("next").onclick=()=>{cursor=view==="month"?shiftMonth(cursor,1):shiftDays(cursor,view==="week"?7:1);if(view==="day")selectedKey=keyOf(cursor);render();};
 document.getElementById("today").onclick=()=>{cursor=new Date();selectedKey=keyOf(cursor);render();};
 
 /* ---------- Téma ---------- */

@@ -69,17 +69,16 @@
       </div>
 
       <details class="settings">
-        <summary>Felhő-szinkron (opcionális) <span id="syncBadge" class="badge">kikapcsolva</span></summary>
-        <p class="hint">Ha megadod a Google Űrlapod adatait, minden mentés a felhőbe (Google Táblázat) is bekerül. Enélkül minden a telefonon marad.</p>
-        <div class="field"><label>Google Form „formResponse" URL</label>
-          <input id="cfgUrl" type="url" placeholder="https://docs.google.com/forms/d/e/.../formResponse" autocomplete="off" /></div>
-        <div class="field"><label>entry azonosító – Projekt</label>
-          <input id="cfgProj" type="text" placeholder="entry.111111" autocomplete="off" /></div>
-        <div class="field"><label>entry azonosító – Idő</label>
-          <input id="cfgHours" type="text" placeholder="entry.222222" autocomplete="off" /></div>
-        <div class="field"><label>entry azonosító – Tevékenység</label>
-          <input id="cfgAct" type="text" placeholder="entry.333333" autocomplete="off" /></div>
-        <div class="actions"><button id="cfgSave" class="btn btn-ghost" type="button">Beállítás mentése</button></div>
+        <summary>Felhő-szinkron – Google Táblázat <span id="syncBadge" class="badge">kikapcsolva</span></summary>
+        <p class="hint">Illeszd be a Google Apps Script webalkalmazásod URL-jét (a beállítást lásd a README-ben). Ekkor minden mentés közvetlenül a Google Táblázatodba is bekerül. Enélkül minden a telefonon marad.</p>
+        <div class="field"><label>Apps Script webalkalmazás URL</label>
+          <input id="cfgUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" /></div>
+        <div class="field"><label>Titkos kulcs (opcionális)</label>
+          <input id="cfgToken" type="text" placeholder="pl. valami-titok-123" autocomplete="off" /></div>
+        <div class="actions">
+          <button id="cfgTest" class="btn btn-ghost" type="button">Teszt sor</button>
+          <button id="cfgSave" class="btn btn-ghost" type="button">Beállítás mentése</button>
+        </div>
       </details>
     </div>
 

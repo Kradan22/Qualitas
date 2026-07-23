@@ -223,42 +223,49 @@ $('saveBtn').addEventListener('click', async () => {
   trySync(entry);
 });
 
-/* ---------- Felhő-szinkron (opcionális Google Form) ---------- */
+/* ---------- Felhő-szinkron (Google Apps Script → Google Táblázat) ---------- */
 function refreshSyncBadge() {
   const cfg = loadCfg();
-  const on = cfg.url && cfg.proj && cfg.hours && cfg.act;
-  $('syncBadge').textContent = on ? 'bekapcsolva' : 'kikapcsolva';
+  $('syncBadge').textContent = cfg.url ? 'bekapcsolva' : 'kikapcsolva';
 }
 function loadCfgIntoForm() {
   const cfg = loadCfg();
   $('cfgUrl').value = cfg.url || '';
-  $('cfgProj').value = cfg.proj || '';
-  $('cfgHours').value = cfg.hours || '';
-  $('cfgAct').value = cfg.act || '';
+  $('cfgToken').value = cfg.token || '';
   refreshSyncBadge();
 }
 $('cfgSave').addEventListener('click', () => {
-  saveCfg({
-    url: $('cfgUrl').value.trim(),
-    proj: $('cfgProj').value.trim(),
-    hours: $('cfgHours').value.trim(),
-    act: $('cfgAct').value.trim(),
-  });
+  saveCfg({ url: $('cfgUrl').value.trim(), token: $('cfgToken').value.trim() });
   refreshSyncBadge();
   toast('Beállítás mentve.');
 });
+$('cfgTest').addEventListener('click', async () => {
+  const url = $('cfgUrl').value.trim();
+  if (!url) { toast('Előbb add meg az Apps Script URL-t.'); return; }
+  saveCfg({ url, token: $('cfgToken').value.trim() });
+  refreshSyncBadge();
+  await trySync({ ts: new Date().toISOString(), proj: 'TESZT', hours: 0, act: 'próba sor az appból' });
+  toast('Teszt sor elküldve – nézd meg a Google Táblázatot.');
+});
+
+// A bejegyzést JSON-ként küldi az Apps Script webalkalmazásnak.
+// A 'text/plain' tartalomtípus elkerüli a CORS előkérést; a választ nem olvassuk (no-cors).
 function trySync(entry) {
   const cfg = loadCfg();
-  if (!(cfg.url && cfg.proj && cfg.hours && cfg.act)) return;
-  const params = new URLSearchParams();
-  params.set(cfg.proj, entry.proj);
-  params.set(cfg.hours, fmtNum(entry.hours));
-  params.set(cfg.act, entry.act);
-  // no-cors: az űrlap elfogadja, választ nem olvasunk
-  fetch(cfg.url, { method: 'POST', mode: 'no-cors',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString() })
-    .catch(() => {/* offline: helyben már elmentve */});
+  if (!cfg.url) return Promise.resolve();
+  const payload = {
+    token: cfg.token || '',
+    ts: entry.ts,
+    projekt: entry.proj,
+    ora: fmtNum(entry.hours),
+    tevekenyseg: entry.act,
+  };
+  return fetch(cfg.url, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+  }).catch(() => {/* offline: helyben már elmentve, később újraküldhető */});
 }
 
 /* ---------- Megjelenítés ---------- */

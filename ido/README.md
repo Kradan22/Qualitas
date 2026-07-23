@@ -51,11 +51,36 @@ A gyökérben lévő `index.html` (naptár) érintetlen marad. Minden útvonal r
 - Példa egymondatos diktálásra: *„Kovács projekt, két és fél óra, tesztelés"*.
   Az óra felismeri a `2,5`, `két és fél`, `másfél`, `negyed óra` alakokat is.
 
-## Felhő-szinkron beállítása (opcionális)
-Ha a bejegyzések a felhőbe (Google Táblázatba) is kerüljenek, kövesd a gyökérben
-lévő `idonyilvantarto-siri-utmutato.md` 1–3. lépését (Google Űrlap + entry
-azonosítók), majd az appban a **„Felhő-szinkron (opcionális)"** résznél add meg:
-- a `formResponse` URL-t,
-- a három `entry.xxxx` azonosítót.
+## Hova menti az adatokat?
+- **Alapból: a telefonodon, helyben** (`localStorage`) – offline is működik, privát,
+  de csak azon az eszközön látszik, és a böngészőadatok törlésével elveszhet.
+  Ezért van a **CSV export** biztonsági mentésnek.
+- **Opcionálisan: közvetlenül a Google Táblázatodba** (lásd lent) – automatikus
+  felhős másolat, több eszközről elérhető.
+
+## Felhő-szinkron beállítása (Google Táblázat, ajánlott)
+Ez **közvetlenül** a Google Táblázatodba ír egy kis Apps Script „kapun" át –
+nem kell külön Google Űrlap és entry-azonosítók, csak **egy URL**.
+
+1. Hozz létre (vagy nyiss meg) egy **Google Táblázatot** – ide gyűlnek az adatok.
+2. **Bővítmények → Apps Script**.
+3. Töröld a példakódot, és illeszd be a repóban lévő
+   [`google-apps-script.gs`](google-apps-script.gs) teljes tartalmát. Mentsd.
+4. **Telepítés → Új telepítés → típus: Webalkalmazás**:
+   - *Végrehajtás*: **én** (a saját fiókod),
+   - *Hozzáférés*: **Bárki**.
+   - Első alkalommal engedélyezned kell a hozzáférést a saját táblázatodhoz.
+5. Másold ki a **Webalkalmazás URL**-t (`…/exec` végű).
+6. Az appban: **Felhő-szinkron – Google Táblázat** → illeszd be az URL-t →
+   **Teszt sor** (ellenőrzés) → **Beállítás mentése**.
 
 Ezután minden mentés a helyi tárolás mellé a Google Táblázatba is bekerül.
+
+### Biztonság (opcionális)
+A `google-apps-script.gs` tetején a `SECRET`-be írhatsz egy kulcsot; ugyanazt add
+meg az appban a **Titkos kulcs** mezőben. Így csak a te appod írhat a táblázatba.
+
+> **Megjegyzés a szinkronról:** a mentés a felhőbe „tűzd és felejtsd" módon megy
+> (a böngésző CORS-szabályai miatt), ezért az app a *helyi* tárolót használja a
+> megjelenítéshez, és emellé küldi a sorokat a táblázatba. Ha épp nincs net, a
+> bejegyzés helyben megvan; a Google Táblázat a legközelebbi online mentésnél frissül.

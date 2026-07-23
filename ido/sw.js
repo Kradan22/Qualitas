@@ -1,5 +1,5 @@
 /* Egyszerű offline cache – a fő fájlok elérhetők net nélkül is. */
-const CACHE = 'qualitas-ido-v2';
+const CACHE = 'qualitas-ido-v3';
 const ASSETS = [
   './',
   './index.html',

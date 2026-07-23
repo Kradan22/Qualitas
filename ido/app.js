@@ -36,64 +36,99 @@ function fmtDateTime(iso) {
 }
 
 /* ---------- Magyar óra-értelmezés ---------- */
+// Megjegyzés: a JS \b szóhatár csak ASCII-ra működik, ezért ékezetes szavaknál
+// (idő, öt, ...) NEM használható – helyette elválasztó-karakterekkel dolgozunk.
 const NUM_WORDS = {
-  'nulla':0,'egy':1,'kettő':2,'ket':2,'két':2,'kettu':2,'harom':3,'három':3,'negy':4,'négy':4,
+  'nulla':0,'egy':1,'kettő':2,'ketto':2,'kettu':2,'két':2,'ket':2,'három':3,'harom':3,'négy':4,'negy':4,
   'öt':5,'ot':5,'hat':6,'hét':7,'het':7,'nyolc':8,'kilenc':9,'tíz':10,'tiz':10,
-  'tizenegy':11,'tizenkettő':12,'tizenket':12,'tizenkét':12
+  'tizenegy':11,'tizenkettő':12,'tizenkét':12,'tizenket':12
 };
-// Beszélt szövegből próbál órát kinyerni: "2,5", "2.5", "két és fél óra", "másfél óra", "negyed óra"
+// A számnév-alternatíva a leghosszabb alakokkal előre (hogy a "tizenkét" ne "két"-re essen).
+const NUMWORD = '(?:tizenkettő|tizenkét|tizenket|tizenegy|kettő|ketto|kettu|két|ket|három|harom|négy|negy|nyolc|kilenc|nulla|egy|öt|ot|hat|hét|het|tíz|tiz)';
+// Egy teljes idő-kifejezés (szám/szó + "óra"), pl. "2,5 óra", "két és fél óra", "fél óra".
+const HOURS_RE = new RegExp(
+  '(\\d+(?:[.,]\\d+)?|másfél|masfel|háromnegyed|haromnegyed|negyed|fél|fel|' +
+  NUMWORD + '(?:\\s+(?:és\\s+)?fél)?' +
+  ')\\s*ór[a-záéíóöőúüű]*', 'i');
+
+// Beszélt szövegből órát kinyer: "2,5", "két és fél óra", "másfél óra", "negyed óra", "fél óra"
 function parseHours(text) {
   if (!text) return null;
-  let s = text.toLowerCase();
-  // számjegyes alak (2,5 / 2.5 / 2)
-  const digit = s.match(/(\d+([.,]\d+)?)/);
+  const s = ' ' + text.toLowerCase() + ' ';       // padolás, hogy a szélek is határnak számítsanak
+  const digit = s.match(/(\d+(?:[.,]\d+)?)/);
   if (digit) return parseFloat(digit[1].replace(',', '.'));
-  let total = 0, found = false;
   if (/másfél|masfel/.test(s)) return 1.5;
-  // egész szám szó
+  if (/háromnegyed|haromnegyed/.test(s)) return 0.75;
+  let total = 0, found = false;
   for (const w in NUM_WORDS) {
-    const re = new RegExp('\\b' + w + '\\b');
-    if (re.test(s)) { total = NUM_WORDS[w]; found = true; break; }
+    if (new RegExp('[\\s,;.:]' + w + '[\\s,;.:]').test(s)) { total = NUM_WORDS[w]; found = true; break; }
   }
-  if (/\bés fél\b|\bes fel\b|\bfél\b|\bfel\b/.test(s)) { total += 0.5; found = true; }
+  if (/[\s,;.:](?:és\s+)?fél[\s,;.:]/.test(s)) { total += 0.5; found = true; }
   else if (/negyed/.test(s)) { total += 0.25; found = true; }
-  else if (/háromnegyed|haromnegyed/.test(s)) { total += 0.75; found = true; }
   return found ? total : null;
 }
 
-// Egy mondatból projekt / idő / tevékenység kinyerése
+// Projekt-rész tisztítása (nem darabol az "és"-nél, hogy a többszavas név megmaradjon)
+function tidyProj(s) {
+  return (s || '').replace(/\s+/g, ' ')
+    .replace(/^[\s,;:.]+/, '').replace(/[\s,;:.]+$/, '')
+    .replace(/^projekt[:\s]*/i, '')          // vezető "projekt" szó
+    .replace(/[\s,;:.]*(?:idő|ido)\s*$/i, '') // záró "... idő" töltelék
+    .replace(/[\s,;:.]*projekt\s*$/i, '')     // záró "... projekt" (pl. "Kovács projekt")
+    .replace(/[\s,;:.]+$/, '').trim();
+}
+// Tevékenység-rész tisztítása
+function tidyAct(s) {
+  return (s || '').replace(/\s+/g, ' ')
+    .replace(/^[\s,;:.]+/, '').replace(/[\s,;:.]+$/, '')
+    .replace(/^(?:tevékenység|tevekenyseg|feladat)[:\s]*/i, '').trim();
+}
+
+// Kulcsszavas kinyerés, ha a felhasználó kimondta a "projekt"/"tevékenység" szót
+function byKeywords(t) {
+  const kwEnd = '(?=\\s+(?:idő|ido|óra|ora|tevékenység|tevekenyseg|feladat)(?=\\s|[,;]|$)|[,;]|$)';
+  const projM = t.match(new RegExp('projekt[:\\s]+([^,;]+?)' + kwEnd, 'i'));
+  const actM  = t.match(/(?:tevékenység|tevekenyseg|feladat)[:\s]+(.+)$/i);
+  if (!projM && !actM) return null;
+  const out = { proj: '', hours: '', act: '' };
+  if (projM) out.proj = tidyProj(projM[1]);
+  if (actM)  out.act  = tidyAct(actM[1]);
+  const hm = t.match(HOURS_RE);
+  if (hm) { const h = parseHours(hm[0]); if (h != null) out.hours = fmtNum(h); }
+  return out;
+}
+
+// Egy mondatból projekt / idő / tevékenység kinyerése.
+// Fő logika: megkeressük az idő-kifejezést, az előtte lévő rész a projekt,
+// az utána lévő a tevékenység. Így a többszavas név (pl. "Emika Kft") megmarad.
 function parseUtterance(text) {
   const out = { proj: '', hours: '', act: '' };
-  if (!text) return out;
-  let t = text.trim();
+  let t = (text || '').replace(/\s+/g, ' ').trim();
+  if (!t) return out;
 
-  // Kulcsszavas felbontás, ha van
-  const projM = t.match(/projekt[:\s]+(.+?)(?=\s*(idő|ido|óra|ora|tevékenység|tevekenyseg|feladat|,|;|$))/i);
-  const actM  = t.match(/(tevékenység|tevekenyseg|feladat)[:\s]+(.+)$/i);
+  const kw = byKeywords(t);
+  if (kw) return kw;
 
-  // Idő: keressünk óra környékén
-  const hoursM = t.match(/([\wáéíóöőúüű.,]+(?:\s+(?:és|es)\s+fél|\s+fél)?)\s*ór(a|át|ák)/i)
-             || t.match(/(\d+([.,]\d+)?)/);
-  let hours = null;
-  if (hoursM) hours = parseHours(hoursM[0]);
-
-  if (projM) out.proj = clean(projM[1]);
-  if (actM) out.act = clean(actM[2]);
-  if (hours != null) out.hours = fmtNum(hours);
-
-  // Ha nem volt kulcsszó, próbáljunk vesszős tagolást: "projekt, idő, tevékenység"
-  if (!projM && !actM) {
-    const parts = t.split(/[,;]|\bés\b/).map(clean).filter(Boolean);
-    if (parts.length >= 1 && out.proj === '') out.proj = parts[0];
-    if (parts.length >= 3) out.act = parts.slice(2).join(', ');
-    else if (parts.length === 2 && hours == null) out.act = parts[1];
-    // az idő-részt vegyük ki a tevékenységből, ha az volt
+  const m = t.match(HOURS_RE);
+  if (m) {
+    const h = parseHours(m[0]);
+    if (h != null) out.hours = fmtNum(h);
+    const before = t.slice(0, m.index);
+    const after  = t.slice(m.index + m[0].length);
+    out.proj = tidyProj(before);
+    out.act  = tidyAct(after);
+    // Ha az idő a mondat elején volt (nincs projekt előtte), vesszős tagolás az utórészen
+    if (!out.proj && after) {
+      const parts = after.split(/[,;]+/).map((x) => x.trim()).filter(Boolean);
+      if (parts.length >= 2) { out.proj = tidyProj(parts[0]); out.act = tidyAct(parts.slice(1).join(', ')); }
+    }
+    return out;
   }
-  // Végső fallback: ha semmi tevékenység, tegyük az egészet oda
-  if (!out.act && !projM) {
-    const withoutHours = hoursM ? t.replace(hoursM[0], '').trim() : t;
-    if (!out.proj) out.proj = clean(withoutHours);
-  }
+
+  // Nincs idő a mondatban: vesszős tagolás → projekt, tevékenység
+  const parts = t.split(/[,;]+/).map((x) => x.trim()).filter(Boolean);
+  out.proj = tidyProj(parts[0] || '');
+  out.act  = tidyAct(parts.slice(1).join(', '));
   return out;
 }
 function clean(s) {

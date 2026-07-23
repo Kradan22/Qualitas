@@ -21,16 +21,23 @@ opcionálisan felhőbe (Google Táblázat) is szinkronizálhatók.
 - `sw.js` – service worker (offline)
 - `icons/` – ikonok
 
-## Közzététel GitHub Pages-en (ingyenes, HTTPS)
-A PWA-hoz és a mikrofonhoz **HTTPS** kell. Legegyszerűbb a GitHub Pages:
+## Külön linken – a naptártervező mellett
+Ez az app egy külön almappában (`ido/`) van, hogy **saját URL-t** kapjon és
+**ne érintse a meglévő naptártervezőt** (ami a Pages-cím gyökerén fut).
 
-1. A repóban: **Settings → Pages**.
-2. **Source**: `Deploy from a branch`.
-3. **Branch**: válaszd a fő ágat (pl. `main`) és a **`/docs`** mappát → **Save**.
-4. Pár perc múlva elérhető: `https://kradan22.github.io/Qualitas/`
+Miután ez az `ido/` mappa arra az ágra kerül, amelyet a **GitHub Pages** kiszolgál
+(ugyanaz, amelyiken a naptár is van), a két app így érhető el:
 
-> Ez a mappa (`/docs`) szándékosan a GitHub Pages alapértelmezett helye.
-> Minden útvonal relatív, így az al-útvonalas (`/Qualitas/`) cím is jól működik.
+| App | Cím |
+|---|---|
+| Naptártervező (meglévő) | `https://kradan22.github.io/Qualitas/` |
+| Időnyilvántartó (ez) | `https://kradan22.github.io/Qualitas/ido/` |
+
+A gyökérben lévő `index.html` (naptár) érintetlen marad. Minden útvonal relatív,
+így az `/ido/` al-útvonalon a PWA, a service worker és az ikonok is jól működnek.
+
+> A pontos beolvasztás attól függ, melyik ágat/mappát állítottad be a
+> **Settings → Pages** alatt. Ezt az `ido/` mappát arra az ágra kell tenni.
 
 ## Telepítés iPhone-ra (appként)
 1. Nyisd meg a fenti címet **Safariban**.

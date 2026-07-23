@@ -12,7 +12,7 @@
     --tent:#b5771a; --tent-bg:#fdf3e2; --tent-line:#f0dcae;
     --now:#e5484d; --ok:#0d8a72; --err:#e5484d;
     /* tervezési kategóriák (téma-független accentek, a háttér color-mix-szel igazodik) */
-    --cat-task:#8a94a6; --cat-dev:#7b61ff; --cat-ops:#2596d1; --cat-ana:#10b981; --cat-sal:#f0942b;
+    --cat-task:#8a94a6; --cat-dev:#7b61ff; --cat-ops:#2596d1; --cat-ana:#10b981; --cat-sal:#f0942b; --cat-acc:#e2549c;
     --shadow:0 1px 2px rgba(24,39,75,.06), 0 8px 24px -12px rgba(24,39,75,.18);
     --radius:14px;
     --hour:72px; --gutter:56px;
@@ -210,7 +210,7 @@
   .todo-empty{color:var(--faint); font-size:12.5px; text-align:center; padding:8px 0 2px; line-height:1.5}
 
   /* kategória-színek hordozó osztálya (--c) */
-  .k-task{--c:var(--cat-task)} .k-dev{--c:var(--cat-dev)} .k-ops{--c:var(--cat-ops)} .k-ana{--c:var(--cat-ana)} .k-sal{--c:var(--cat-sal)}
+  .k-task{--c:var(--cat-task)} .k-dev{--c:var(--cat-dev)} .k-ops{--c:var(--cat-ops)} .k-ana{--c:var(--cat-ana)} .k-sal{--c:var(--cat-sal)} .k-acc{--c:var(--cat-acc)}
   /* beütemezett kategória-blokk a rácson */
   .event.blk{background:color-mix(in srgb,var(--c,var(--cat-task)) 15%,var(--surface)); border:1px solid color-mix(in srgb,var(--c,var(--cat-task)) 34%,var(--surface)); border-left:3px solid var(--c,var(--cat-task)); color:var(--ink)}
   .event.blk .ev-t{padding-right:16px}
@@ -459,9 +459,10 @@ const BLOCK_CATS={
   ops:{label:"Operatív vezetés"},
   ana:{label:"Elemzés"},
   sal:{label:"Sales"},
+  acc:{label:"Könyvelés"},
   task:{label:"Egyéb / teendő"}
 };
-const BLOCK_ORDER=["dev","ops","ana","sal","task"];
+const BLOCK_ORDER=["dev","ops","ana","sal","acc","task"];
 function getLastKind(){const k=localStorage.getItem("planner-lastkind");return BLOCK_CATS[k]?k:"dev";}
 function setLastKind(k){try{localStorage.setItem("planner-lastkind",k)}catch(e){}}
 function hoursFmt(mins){ if(!mins) return "0"; const h=mins/60; const s=(Math.round(h*10)/10).toString().replace(".",","); return s+" ó"; }

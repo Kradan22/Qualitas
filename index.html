@@ -260,6 +260,31 @@
   .cat-chip.sel{border-color:var(--c,var(--cat-task)); background:color-mix(in srgb,var(--c,var(--cat-task)) 15%,var(--surface)); color:var(--ink)}
   .todo .kdot{width:9px; height:9px; border-radius:3px; background:var(--c,var(--cat-task)); flex:0 0 auto}
 
+  /* Feladatok nézet */
+  .tasksview{padding:16px; display:flex; flex-direction:column; gap:14px}
+  .tv-head{display:flex; align-items:center; justify-content:space-between; gap:12px}
+  .tv-title{font-size:16px; font-weight:750; letter-spacing:-.01em}
+  .proj{border:1px solid var(--line); border-radius:12px; overflow:hidden; border-left:4px solid var(--c,var(--cat-task))}
+  .proj-head{display:flex; align-items:center; gap:9px; padding:11px 14px; background:color-mix(in srgb,var(--c,var(--cat-task)) 8%,var(--surface)); flex-wrap:wrap}
+  .proj-dot{width:11px; height:11px; border-radius:3px; background:var(--c,var(--cat-task)); flex:0 0 auto}
+  .proj-name{font-weight:700; font-size:14.5px}
+  .proj-count{font-size:12px; color:var(--muted)}
+  .proj-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
+  .lnk{border:0; background:transparent; color:var(--accent-ink); font-weight:600; font-size:12.5px; padding:2px 4px; cursor:pointer}
+  .lnk.del{color:var(--now)}
+  .proj-tasks{display:flex; flex-direction:column}
+  .proj-empty{padding:12px 14px; color:var(--faint); font-size:13px}
+  .tv-task{display:flex; align-items:center; gap:10px; padding:9px 14px; border-top:1px solid var(--line); cursor:pointer}
+  .tv-task:hover{background:var(--surface-2)}
+  .tv-task .check{width:20px; height:20px; border-radius:6px; border:1.5px solid var(--line-strong); background:var(--surface); flex:0 0 auto; display:grid; place-items:center; color:#fff; font-size:12px; padding:0}
+  .tv-task.done .check{background:var(--task); border-color:var(--task)}
+  .tv-task.done .tv-ttl{color:var(--faint); text-decoration:line-through}
+  .tv-ttl{flex:1; font-size:13.5px; min-width:0; overflow:hidden; text-overflow:ellipsis}
+  .tv-due{flex:0 0 auto}
+  .tv-duechip{font-size:11.5px; font-weight:600; color:var(--ink-soft); background:var(--surface-3); border:1px solid var(--line); border-radius:20px; padding:2px 9px; white-space:nowrap}
+  .tv-duechip small{color:var(--muted); font-weight:500}
+  .tv-nodue{font-size:11.5px; color:var(--faint)}
+
   /* teendő-szerkesztő mező-elemek */
   .te-day{font-size:12.5px; color:var(--muted); margin:-4px 0 2px}
   .te-title{width:100%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:9px; padding:9px 11px; font-size:14px; font-family:inherit}
@@ -312,6 +337,7 @@
         <button id="viewDay" aria-pressed="false">Nap</button>
         <button id="viewWeek" aria-pressed="true">Hét</button>
         <button id="viewMonth" aria-pressed="false">Hónap</button>
+        <button id="viewTasks" aria-pressed="false">Feladatok</button>
       </div>
       <div class="nav">
         <button class="iconbtn" id="prev" aria-label="Előző">‹</button>
@@ -691,6 +717,16 @@ function render(){
   document.getElementById("viewDay").setAttribute("aria-pressed",view==="day");
   document.getElementById("viewWeek").setAttribute("aria-pressed",view==="week");
   document.getElementById("viewMonth").setAttribute("aria-pressed",view==="month");
+  document.getElementById("viewTasks").setAttribute("aria-pressed",view==="tasks");
+  if(view==="tasks"){
+    document.getElementById("periodLabel").textContent="Projektek & feladatok";
+    document.getElementById("periodSub").textContent="dátumból naptár-bejegyzés lesz";
+    const all=loadTasks(), open=all.filter(t=>!t.done).length;
+    document.getElementById("periodCount").innerHTML=`<span><b>${open}</b> nyitott feladat</span><span>${all.length} összesen · ${loadProjects().length} projekt</span>`;
+    buildTasksView();
+    renderSummary(weekDays(cursor)); renderAgenda(); renderTodos();
+    return;
+  }
   const days = view==="month" ? monthDays(cursor) : (view==="week" ? weekDays(cursor) : [cursor]);
   const pl=document.getElementById("periodLabel"), ps=document.getElementById("periodSub");
   if(view==="month"){
@@ -732,12 +768,14 @@ function buildMonth(days){
     const items=[];
     (BY_DAY[k]||[]).forEach(e=>items.push({s:e.allday?-1:e.startMin,ev:e}));
     scheduledTodos(k).forEach(b=>items.push({s:b.startMin,blk:b}));
+    dueTasks(k).forEach(d=>items.push({s:1e9,due:d}));
     items.sort((a,b)=>a.s-b.s);
     const shown=items.slice(0,4);
     let chips="";
     shown.forEach(it=>{
       if(it.ev) chips+=`<div class="mchip ev cat-${it.ev.cat}">${it.ev.allday?"":hm(it.ev.startMin)+" "}${esc(it.ev.t)}</div>`;
-      else chips+=`<div class="mchip mblk k-${it.blk.kind}${it.blk.done?" done":""}">${hm(it.blk.startMin)} ${esc(it.blk.text)}</div>`;
+      else if(it.blk) chips+=`<div class="mchip mblk k-${it.blk.kind}${it.blk.done?" done":""}">${hm(it.blk.startMin)} ${esc(it.blk.text)}</div>`;
+      else chips+=`<div class="mchip mblk k-${BLOCK_CATS[it.due.kind]?it.due.kind:"task"}${it.due.done?" done":""}">⏳ ${esc(it.due.title)}</div>`;
     });
     if(items.length>4) chips+=`<div class="mmore">+${items.length-4} további</div>`;
     cell.innerHTML=`<div class="mnum">${dl.d}</div><div class="mchips">${chips}</div>`;
@@ -749,8 +787,9 @@ function buildMonth(days){
 
 /* ---------- Idő-tervező összegzés ---------- */
 function renderSummary(days){
+  const set=new Set(days.map(keyOf));
   const sums={}; BLOCK_ORDER.forEach(k=>sums[k]=0); let total=0;
-  days.forEach(dd=>{ loadTodosFor(keyOf(dd)).forEach(it=>{ if(typeof it.time==="number"){ const kind=BLOCK_CATS[it.kind]?it.kind:"task"; const dur=it.dur||30; sums[kind]+=dur; total+=dur; } }); });
+  loadTasks().forEach(t=>{ if(typeof t.time==="number" && t.due && set.has(t.due)){ const kind=BLOCK_CATS[t.kind]?t.kind:"task"; const dur=t.dur||60; sums[kind]+=dur; total+=dur; } });
   const scope = view==="month"?"ebben a hónapban":(view==="week"?"ezen a héten":"ma");
   document.getElementById("sumHint").textContent = total? `Tervezett órák kategóriánként — ${scope}` : `Még nincs beütemezett időblokk ${scope}.`;
   const max=Math.max(60,...BLOCK_ORDER.map(k=>sums[k]));
@@ -838,8 +877,8 @@ function buildBoard(days){
       if(ev.isTodo){
         el.className="event blk k-"+(ev.kind||"task")+(ev.done?" done":"")+(hgt<38?" compact":"");
         el.innerHTML=`<div class="tb-check">${ev.done?"✓":""}</div><div class="ev-t">${esc(ev.text)}</div><div class="ev-time">${hm(ev.startMin)}–${hm(ev.endMin)}</div>`;
-        el.querySelector(".tb-check").onclick=(e)=>{e.stopPropagation();const a=loadTodosFor(ev.dayKey);if(a[ev.todoIdx]){a[ev.todoIdx].done=!a[ev.todoIdx].done;saveTodosFor(ev.dayKey,a);render();}};
-        el.onclick=(e)=>{e.stopPropagation();openTodoEditor(ev.dayKey,ev.todoIdx);};
+        el.querySelector(".tb-check").onclick=(e)=>{e.stopPropagation();toggleTaskDone(ev.taskId);};
+        el.onclick=(e)=>{e.stopPropagation();editTask(ev.taskId);};
       }else{
         el.className="event cat-"+ev.cat+(ev.tent?" tent":"")+(hgt<40?" compact":"");
         el.innerHTML=`<div class="ev-t">${esc(ev.t)}</div><div class="ev-time">${hm(ev.startMin)}–${hm(ev.endMin)}</div>`+(ev.loc?`<div class="ev-loc">${esc(ev.loc)}</div>`:"");
@@ -853,7 +892,7 @@ function buildBoard(days){
       const y=e.clientY-col.getBoundingClientRect().top;
       let mins=GRID_START*60+Math.round((y/HOURH*60)/15)*15;
       mins=Math.max(GRID_START*60,Math.min(GRID_END*60-30,mins));
-      openNewTodo(k,mins);
+      newTask({due:k,time:mins});
     });
     if(k===todayKey){
       const now=local(new Date());
@@ -888,20 +927,30 @@ function renderAgenda(){
   document.getElementById("agendaTitle").textContent = view==="day" ? "Napi program" : "Kijelölt nap";
   document.getElementById("agendaSub").textContent=`${HU_DOW[dowOf(date)]} · ${mo}. ${d}. · ${relDay(date)}`;
   const box=document.getElementById("agenda");
-  const evs=BY_DAY[key]||[]; const tds=scheduledTodos(key);
-  if(!evs.length && !tds.length){box.innerHTML=`<div class="empty">Nincs bejegyzés erre a napra 🌿</div>`;return;}
-  const entries=evs.map(ev=>({s:ev.allday?-1:ev.startMin,ev})).concat(tds.map(td=>({s:td.startMin,td})))
-                   .sort((a,b)=>a.s-b.s);
+  const evs=BY_DAY[key]||[]; const tds=scheduledTodos(key); const dts=dueTasks(key);
+  if(!evs.length && !tds.length && !dts.length){box.innerHTML=`<div class="empty">Nincs bejegyzés erre a napra 🌿</div>`;return;}
+  const entries=evs.map(ev=>({s:ev.allday?-1:ev.startMin,ev}))
+    .concat(tds.map(td=>({s:td.startMin,td})))
+    .concat(dts.map(dt=>({s:1e9,due:dt})))
+    .sort((a,b)=>a.s-b.s);
   box.innerHTML="";
   entries.forEach(en=>{
     const it=document.createElement("div"); it.className="agenda-item";
     if(en.td){
       const td=en.td;
-      it.innerHTML=`<div class="stripe cat-task"></div>`+
+      it.innerHTML=`<div class="stripe k-${td.kind}" style="background:var(--c)"></div>`+
         `<div class="agenda-time">${hm(td.startMin)}<small>${hm(td.endMin)}</small></div>`+
         `<div class="agenda-body"><div class="a-t"${td.done?' style="text-decoration:line-through;color:var(--faint)"':""}>${td.done?"✓ ":""}${esc(td.text)}</div>`+
-        `<div class="a-m"><span class="tag" style="background:var(--task-bg);color:var(--task);border-color:var(--task-line)">teendő</span></div></div>`;
-      it.onclick=()=>openTodoEditor(key,td.todoIdx);
+        `<div class="a-m"><span class="tag k-${td.kind}" style="background:color-mix(in srgb,var(--c) 15%,var(--surface));color:var(--c);border-color:color-mix(in srgb,var(--c) 30%,var(--surface))">${BLOCK_CATS[td.kind].label}</span></div></div>`;
+      it.onclick=()=>editTask(td.taskId);
+    }else if(en.due){
+      const dt=en.due; const kind=BLOCK_CATS[dt.kind]?dt.kind:"task";
+      it.className="agenda-item k-"+kind;
+      it.innerHTML=`<div class="stripe" style="background:var(--c)"></div>`+
+        `<div class="agenda-time" style="color:var(--muted)">—<small>határidő</small></div>`+
+        `<div class="agenda-body"><div class="a-t"${dt.done?' style="text-decoration:line-through;color:var(--faint)"':""}>${dt.done?"✓ ":""}${esc(dt.title)}</div>`+
+        `<div class="a-m"><span class="tag k-${kind}" style="background:color-mix(in srgb,var(--c) 15%,var(--surface));color:var(--c);border-color:color-mix(in srgb,var(--c) 30%,var(--surface))">${BLOCK_CATS[kind].label} · határidő</span></div></div>`;
+      it.onclick=()=>editTask(dt.id);
     }else{
       const ev=en.ev;
       it.innerHTML=`<div class="stripe cat-${ev.cat}"></div>`+
@@ -917,96 +966,173 @@ function renderAgenda(){
   });
 }
 
-/* ---------- Teendők (localStorage) ---------- */
-function todoKeyFor(k){return "planner-todos:"+k;}
+/* ============================================================
+   PROJEKTEK & FELADATOK (localStorage — később SharePoint-ra cserélhető)
+   ============================================================ */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function currentDayKey(){return view==="day"?keyOf(cursor):selectedKey;}
-function loadTodosFor(k){try{return JSON.parse(localStorage.getItem(todoKeyFor(k))||"[]")}catch(e){return[]}}
-function saveTodosFor(k,a){try{localStorage.setItem(todoKeyFor(k),JSON.stringify(a))}catch(e){}}
-function loadTodos(){return loadTodosFor(currentDayKey());}
-function saveTodos(a){saveTodosFor(currentDayKey(),a);}
-/* beütemezett teendők (van időpontjuk) → rács/agenda blokkok */
-function scheduledTodos(k){
-  return loadTodosFor(k).map((it,idx)=>({it,idx})).filter(x=>typeof x.it.time==="number")
-    .map(x=>({isTodo:true,dayKey:k,todoIdx:x.idx,text:x.it.text,done:!!x.it.done,cat:"todo",
-              kind:BLOCK_CATS[x.it.kind]?x.it.kind:"task",
-              startMin:x.it.time,endMin:x.it.time+(x.it.dur||30)}));
+function loadProjects(){try{return JSON.parse(localStorage.getItem("planner-projects")||"[]")}catch(e){return[]}}
+function saveProjects(a){try{localStorage.setItem("planner-projects",JSON.stringify(a))}catch(e){}}
+let TASK_CACHE=null;
+function loadTasks(){if(!TASK_CACHE){try{TASK_CACHE=JSON.parse(localStorage.getItem("planner-tasks")||"[]")}catch(e){TASK_CACHE=[]}}return TASK_CACHE;}
+function saveTasks(a){TASK_CACHE=a;try{localStorage.setItem("planner-tasks",JSON.stringify(a))}catch(e){}}
+function taskById(id){return loadTasks().find(t=>t.id===id);}
+function upsertTask(t){const a=loadTasks().slice();const i=a.findIndex(x=>x.id===t.id);if(i<0)a.push(t);else a[i]=t;saveTasks(a);}
+function deleteTask(id){saveTasks(loadTasks().filter(t=>t.id!==id));}
+function toggleTaskDone(id){const t=taskById(id);if(t){upsertTask({...t,done:!t.done});render();}}
+function ensureSeed(){let ps=loadProjects();if(!ps.length){ps=[{id:uid(),name:"Általános",kind:"task"}];saveProjects(ps);}return ps;}
+function defaultProjectId(){return ensureSeed()[0].id;}
+function migrateTodos(){
+  if(localStorage.getItem("planner-migrated-v1"))return;
+  ensureSeed(); const def=defaultProjectId(); const tasks=loadTasks().slice();
+  const keys=[]; for(let i=0;i<localStorage.length;i++){const kk=localStorage.key(i); if(kk&&kk.indexOf("planner-todos:")===0)keys.push(kk);}
+  keys.forEach(kk=>{const day=kk.slice(14); let arr=[]; try{arr=JSON.parse(localStorage.getItem(kk)||"[]")}catch(e){}
+    arr.forEach(it=>tasks.push({id:uid(),projectId:def,title:it.text||"Feladat",done:!!it.done,due:day,
+      time:typeof it.time==="number"?it.time:null,dur:it.dur||60,kind:BLOCK_CATS[it.kind]?it.kind:"task",notes:""}));
+  });
+  saveTasks(tasks); localStorage.setItem("planner-migrated-v1","1");
 }
+/* naptár-blokkok: adott napra időzített feladatok / határidős (idő nélküli) feladatok */
+function scheduledTodos(k){
+  return loadTasks().filter(t=>t.due===k&&typeof t.time==="number")
+    .map(t=>({isTodo:true,taskId:t.id,dayKey:k,text:t.title,done:!!t.done,cat:"todo",
+              kind:BLOCK_CATS[t.kind]?t.kind:"task",startMin:t.time,endMin:t.time+(t.dur||60)}));
+}
+function dueTasks(k){return loadTasks().filter(t=>t.due===k&&typeof t.time!=="number");}
+
+/* Oldalsáv: a kijelölt nap feladatai + gyors hozzáadás */
 function renderTodos(){
   const key=currentDayKey(); const [y,mo,d]=key.split("-").map(Number);
-  document.getElementById("todoSub").textContent=`${mo}. ${d}. — tedd időponthoz, vagy kattints a naptárba`;
-  const list=document.getElementById("todoList"); const items=loadTodos();
-  if(!items.length){list.innerHTML=`<div class="todo-empty">Még nincs teendő ehhez a naphoz.<br>Írj be egyet, majd a <b>🗓 Beütemez</b> gombbal (vagy a naptárra kattintva) tedd egy időpontra.</div>`;return;}
+  document.getElementById("todoSub").textContent=`${mo}. ${d}. — a nap feladatai`;
+  const list=document.getElementById("todoList");
+  const items=loadTasks().filter(t=>t.due===key).sort((a,b)=>(a.done-b.done)||(((a.time!=null?a.time:1e9))-((b.time!=null?b.time:1e9)))||a.title.localeCompare(b.title));
+  if(!items.length){list.innerHTML=`<div class="todo-empty">Nincs feladat erre a napra.<br>Írj be egyet lent, vagy a <b>Feladatok</b> nézetben tedd projekthez.</div>`;return;}
   list.innerHTML="";
-  items.forEach((it,idx)=>{
-    const row=document.createElement("div"); row.className="todo"+(it.done?" done":"");
-    const scheduled=typeof it.time==="number";
-    const kind=BLOCK_CATS[it.kind]?it.kind:"task";
-    row.innerHTML=`<div class="check">${it.done?"✓":""}</div>`+
+  items.forEach(t=>{
+    const kind=BLOCK_CATS[t.kind]?t.kind:"task"; const scheduled=typeof t.time==="number";
+    const row=document.createElement("div"); row.className="todo"+(t.done?" done":"");
+    row.innerHTML=`<div class="check">${t.done?"✓":""}</div>`+
       `<span class="kdot k-${kind}" title="${BLOCK_CATS[kind].label}"></span>`+
-      `<div class="txt">${esc(it.text)}</div>`+
-      `<button class="sched${scheduled?" set":""}" title="Beütemezés / kategória">${scheduled?"🕘 "+hm(it.time):"🗓 Időzít"}</button>`+
+      `<div class="txt">${esc(t.title)}</div>`+
+      `<button class="sched${scheduled?" set":""}" title="Időpont / részletek">${scheduled?"🕘 "+hm(t.time):"🗓 Időzít"}</button>`+
       `<button class="del" aria-label="Törlés">×</button>`;
-    row.querySelector(".check").onclick=()=>{const a=loadTodos();a[idx].done=!a[idx].done;saveTodos(a);render();};
-    row.querySelector(".txt").onclick=()=>{const a=loadTodos();a[idx].done=!a[idx].done;saveTodos(a);render();};
-    row.querySelector(".sched").onclick=()=>openTodoEditor(key,idx);
-    row.querySelector(".del").onclick=()=>{const a=loadTodos();a.splice(idx,1);saveTodos(a);render();};
+    row.querySelector(".check").onclick=()=>toggleTaskDone(t.id);
+    row.querySelector(".txt").onclick=()=>editTask(t.id);
+    row.querySelector(".sched").onclick=()=>editTask(t.id);
+    row.querySelector(".del").onclick=()=>{deleteTask(t.id);render();};
     list.appendChild(row);
   });
 }
-function addTodo(){const inp=document.getElementById("todoInput");const v=inp.value.trim();if(!v)return;const a=loadTodos();a.push({text:v,done:false});saveTodos(a);inp.value="";render();}
+function addTodo(){
+  const inp=document.getElementById("todoInput");const v=inp.value.trim();if(!v)return;
+  upsertTask({id:uid(),projectId:defaultProjectId(),title:v,done:false,due:currentDayKey(),time:null,dur:60,kind:"task",notes:""});
+  inp.value="";render();
+}
 document.getElementById("todoAdd").onclick=addTodo;
 document.getElementById("todoInput").addEventListener("keydown",e=>{if(e.key==="Enter")addTodo();});
 
-/* ---------- Teendő időzítő / szerkesztő ---------- */
-function parseTimeInput(v){if(!v||v.indexOf(":")<0)return 540;const p=v.split(":");return (+p[0])*60+(+p[1]||0);}
-function openTodoEditor(dayKey,idx){
-  const it=loadTodosFor(dayKey)[idx]; if(!it)return;
-  showTodoModal(dayKey,idx,it.text,typeof it.time==="number"?it.time:540,it.dur||60,!!it.done,typeof it.time==="number",BLOCK_CATS[it.kind]?it.kind:"task");
+/* ---------- Feladatok nézet (projekt-lista) ---------- */
+function buildTasksView(){
+  const overlay=document.getElementById("boardOverlay");
+  board.innerHTML=""; board.appendChild(overlay);
+  const wrap=document.createElement("div"); wrap.className="tasksview";
+  const projects=ensureSeed(); const tasks=loadTasks();
+  const hd=document.createElement("div"); hd.className="tv-head";
+  hd.innerHTML=`<div class="tv-title">Projektek &amp; feladatok</div><button class="btn primary" id="tvNewProj">+ Új projekt</button>`;
+  hd.querySelector("#tvNewProj").onclick=addProject;
+  wrap.appendChild(hd);
+  projects.forEach(p=>{
+    const pt=tasks.filter(t=>t.projectId===p.id);
+    const openN=pt.filter(t=>!t.done).length;
+    const card=document.createElement("div"); card.className="proj k-"+(p.kind||"task");
+    const head=document.createElement("div"); head.className="proj-head";
+    head.innerHTML=`<span class="proj-dot"></span><span class="proj-name">${esc(p.name)}</span>`+
+      `<span class="proj-count">${openN} nyitott · ${pt.length} összesen</span>`+
+      `<span class="proj-actions"><button class="lnk" data-a="add">+ feladat</button><button class="lnk" data-a="edit">átnevez</button>${projects.length>1?'<button class="lnk del" data-a="del">törlés</button>':""}</span>`;
+    head.querySelector('[data-a="add"]').onclick=()=>newTask({projectId:p.id,kind:p.kind});
+    head.querySelector('[data-a="edit"]').onclick=()=>renameProject(p.id);
+    const delb=head.querySelector('[data-a="del"]'); if(delb) delb.onclick=()=>removeProject(p.id);
+    card.appendChild(head);
+    const listEl=document.createElement("div"); listEl.className="proj-tasks";
+    const sorted=pt.slice().sort((a,b)=>(a.done-b.done)||((a.due||"9999-99").localeCompare(b.due||"9999-99"))||(((a.time!=null?a.time:1e9))-((b.time!=null?b.time:1e9))));
+    if(!sorted.length) listEl.innerHTML=`<div class="proj-empty">Nincs feladat — kattints a „+ feladat"-ra.</div>`;
+    else sorted.forEach(t=>{
+      const kind=BLOCK_CATS[t.kind]?t.kind:"task";
+      const row=document.createElement("div"); row.className="tv-task"+(t.done?" done":"");
+      row.innerHTML=`<button class="check" aria-label="Kész">${t.done?"✓":""}</button>`+
+        `<span class="kdot k-${kind}"></span>`+
+        `<div class="tv-ttl">${esc(t.title)}</div>`+
+        `<div class="tv-due">${t.due?dueChip(t):`<span class="tv-nodue">nincs dátum</span>`}</div>`;
+      row.querySelector(".check").onclick=(e)=>{e.stopPropagation();toggleTaskDone(t.id);};
+      row.onclick=()=>editTask(t.id);
+      listEl.appendChild(row);
+    });
+    card.appendChild(listEl);
+    wrap.appendChild(card);
+  });
+  board.appendChild(wrap);
 }
-function openNewTodo(dayKey,timeMin){ showTodoModal(dayKey,-1,"",timeMin,60,false,true,getLastKind()); }
-function showTodoModal(dayKey,idx,text,timeMin,dur,done,scheduled,kind){
-  const DURS=[15,30,45,60,90,120];
-  const [Y,MO,D]=dayKey.split("-").map(Number);
-  const dObj=new Date(Date.UTC(Y,MO-1,D,12));
-  let selDur=dur, selKind=BLOCK_CATS[kind]?kind:"task";
+function dueChip(t){
+  const [y,mo,d]=t.due.split("-").map(Number);
+  const dObj=new Date(Date.UTC(y,mo-1,d,12));
+  const timePart=typeof t.time==="number"?(" · "+hm(t.time)):"";
+  return `<span class="tv-duechip">${mo}. ${d}.${timePart} <small>${relDay(dObj)}</small></span>`;
+}
+function addProject(){const name=prompt("Új projekt neve:");if(name&&name.trim()){const ps=loadProjects();ps.push({id:uid(),name:name.trim(),kind:getLastKind()});saveProjects(ps);render();}}
+function renameProject(id){const ps=loadProjects();const p=ps.find(x=>x.id===id);if(!p)return;const name=prompt("Projekt neve:",p.name);if(name&&name.trim()){p.name=name.trim();saveProjects(ps);render();}}
+function removeProject(id){const inProj=loadTasks().filter(t=>t.projectId===id);if(inProj.length && !confirm("A projektben "+inProj.length+" feladat van. Törlöd a projektet a feladataival együtt?"))return;saveTasks(loadTasks().filter(t=>t.projectId!==id));saveProjects(loadProjects().filter(p=>p.id!==id));render();}
+
+/* ---------- Feladat szerkesztő ---------- */
+function parseTimeInput(v){if(!v||v.indexOf(":")<0)return 540;const p=v.split(":");return (+p[0])*60+(+p[1]||0);}
+function editTask(id){const t=taskById(id);if(t)showTaskModal(t);}
+function newTask(prefill){showTaskModal(Object.assign({id:null,projectId:defaultProjectId(),title:"",done:false,due:null,time:null,dur:60,kind:getLastKind(),notes:""},prefill||{}));}
+function showTaskModal(t){
+  const isNew=!t.id; const DURS=[15,30,45,60,90,120,180];
+  let selKind=BLOCK_CATS[t.kind]?t.kind:"task", selDur=t.dur||60, hasTime=typeof t.time==="number", selProj=t.projectId||defaultProjectId();
+  const projects=ensureSeed();
   const m=document.getElementById("modal");
   m.innerHTML=
-    `<button class="m-close" id="mClose" aria-label="Bezárás">×</button>`+
-    `<div class="m-cat">Időblokk a naptárban</div>`+
-    `<h3 style="margin-bottom:6px">${idx<0?"Új időblokk":"Időblokk szerkesztése"}</h3>`+
-    `<div class="te-day">${HU_DOW[dowOf(dObj)]}, ${Y}. ${HU_MON[MO-1]} ${D}.</div>`+
-    `<div class="field"><label for="teTitle">Megnevezés</label><input class="te-title" id="teTitle" type="text" maxlength="120" value="${esc(text)}" placeholder="Pl. Termékfejlesztés, heti sales hívások…"></div>`+
-    `<div class="field"><label>Kategória</label><div class="cat-opts" id="teCat">`+
+    `<button class="m-close" id="mClose">×</button>`+
+    `<div class="m-cat">Feladat</div>`+
+    `<h3 style="margin-bottom:8px">${isNew?"Új feladat":"Feladat szerkesztése"}</h3>`+
+    `<div class="field"><label for="tkTitle">Megnevezés</label><input class="te-title" id="tkTitle" type="text" maxlength="160" value="${esc(t.title)}" placeholder="Mit kell elvégezni?"></div>`+
+    `<div class="field"><label for="tkProj">Projekt</label><select class="te-title" id="tkProj">`+
+      projects.map(p=>`<option value="${p.id}"${p.id===selProj?" selected":""}>${esc(p.name)}</option>`).join("")+
+    `</select></div>`+
+    `<div class="field"><label>Kategória</label><div class="cat-opts" id="tkCat">`+
       BLOCK_ORDER.map(k=>`<button type="button" data-k="${k}" class="cat-chip k-${k}${k===selKind?" sel":""}">${BLOCK_CATS[k].label}</button>`).join("")+
     `</div></div>`+
-    `<div class="field"><label for="teTime">Kezdés</label><input class="te-time" id="teTime" type="time" step="300" value="${hm(timeMin)}"></div>`+
-    `<div class="field"><label>Hossz</label><div class="dur-opts" id="teDur">`+
-      DURS.map(x=>`<button type="button" data-d="${x}" class="${x===dur?"sel":""}">${x<60?x+" p":(x%60?Math.floor(x/60)+" ó "+(x%60)+" p":x/60+" ó")}</button>`).join("")+
-    `</div></div>`+
-    `<label class="te-done"><input type="checkbox" id="teDone" ${done?"checked":""}> Kész</label>`+
-    `<div class="m-actions">`+
-      `<button class="primary" id="teSave">${idx<0?"Hozzáadás a naptárhoz":"Mentés"}</button>`+
-      (scheduled&&idx>=0?`<button class="ghost" id="teUnsched">Levesz a naptárról</button>`:"")+
+    `<div class="field"><label for="tkDue">Határidő / nap</label><input class="te-time" id="tkDue" type="date" value="${t.due||""}"></div>`+
+    `<label class="te-done" style="margin-top:12px"><input type="checkbox" id="tkTimed" ${hasTime?"checked":""}> Időpontot is adok (megjelenik a naptár idővonalán)</label>`+
+    `<div id="tkTimeWrap" style="${hasTime?"":"display:none"}">`+
+      `<div class="field"><label for="tkTime">Kezdés</label><input class="te-time" id="tkTime" type="time" step="300" value="${hm(hasTime?t.time:540)}"></div>`+
+      `<div class="field"><label>Hossz</label><div class="dur-opts" id="tkDur">`+
+        DURS.map(x=>`<button type="button" data-d="${x}" class="${x===selDur?"sel":""}">${x<60?x+" p":(x%60?Math.floor(x/60)+" ó "+(x%60)+" p":x/60+" ó")}</button>`).join("")+
+      `</div></div>`+
     `</div>`+
-    (idx>=0?`<div class="m-actions" style="margin-top:9px"><button class="ghost" id="teDelete" style="color:var(--now)">Blokk törlése</button></div>`:"");
-  m.querySelectorAll("#teDur button").forEach(b=>b.onclick=()=>{selDur=+b.dataset.d;m.querySelectorAll("#teDur button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
-  m.querySelectorAll("#teCat button").forEach(b=>b.onclick=()=>{selKind=b.dataset.k;m.querySelectorAll("#teCat button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+    `<label class="te-done"><input type="checkbox" id="tkDone" ${t.done?"checked":""}> Kész</label>`+
+    `<div class="m-actions">`+
+      `<button class="primary" id="tkSave">${isNew?"Hozzáadás":"Mentés"}</button>`+
+      (!isNew?`<button class="ghost" id="tkDelete" style="color:var(--now)">Törlés</button>`:"")+
+    `</div>`;
+  m.querySelectorAll("#tkCat button").forEach(b=>b.onclick=()=>{selKind=b.dataset.k;m.querySelectorAll("#tkCat button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  m.querySelectorAll("#tkDur button").forEach(b=>b.onclick=()=>{selDur=+b.dataset.d;m.querySelectorAll("#tkDur button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  document.getElementById("tkTimed").onchange=(e)=>{document.getElementById("tkTimeWrap").style.display=e.target.checked?"":"none";};
   document.getElementById("mClose").onclick=closeModal;
-  document.getElementById("teSave").onclick=()=>{
-    const title=document.getElementById("teTitle").value.trim()||BLOCK_CATS[selKind].label;
-    const t=parseTimeInput(document.getElementById("teTime").value);
-    const dn=document.getElementById("teDone").checked;
-    const a=loadTodosFor(dayKey);
-    if(idx<0) a.push({text:title,done:dn,time:t,dur:selDur,kind:selKind});
-    else a[idx]={...a[idx],text:title,done:dn,time:t,dur:selDur,kind:selKind};
-    saveTodosFor(dayKey,a); setLastKind(selKind); closeModal(); render();
+  document.getElementById("tkSave").onclick=()=>{
+    const title=document.getElementById("tkTitle").value.trim();
+    if(!title){document.getElementById("tkTitle").focus();return;}
+    const timed=document.getElementById("tkTimed").checked;
+    let due=document.getElementById("tkDue").value||null;
+    if(timed&&!due) due=currentDayKey();
+    upsertTask({id:t.id||uid(),projectId:document.getElementById("tkProj").value,title,
+      done:document.getElementById("tkDone").checked,due,
+      time: timed?parseTimeInput(document.getElementById("tkTime").value):null, dur:selDur, kind:selKind, notes:t.notes||""});
+    setLastKind(selKind); closeModal(); render();
   };
-  const un=document.getElementById("teUnsched");
-  if(un) un.onclick=()=>{const a=loadTodosFor(dayKey);if(a[idx]){delete a[idx].time;delete a[idx].dur;}saveTodosFor(dayKey,a);closeModal();render();};
-  const del=document.getElementById("teDelete");
-  if(del) del.onclick=()=>{const a=loadTodosFor(dayKey);a.splice(idx,1);saveTodosFor(dayKey,a);closeModal();render();};
+  const del=document.getElementById("tkDelete"); if(del) del.onclick=()=>{deleteTask(t.id);closeModal();render();};
   document.getElementById("modalBg").classList.add("open");
-  setTimeout(()=>{const t=document.getElementById("teTitle");if(t&&idx<0)t.focus();},30);
+  setTimeout(()=>{const el=document.getElementById("tkTitle");if(el&&isNew)el.focus();},30);
 }
 
 /* ---------- Esemény modal ---------- */
@@ -1036,6 +1162,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();closeS
 document.getElementById("viewDay").onclick=()=>{if(view!=="day"){const[y,mo,d]=selectedKey.split("-").map(Number);cursor=new Date(Date.UTC(y,mo-1,d,12));}view="day";render();};
 document.getElementById("viewWeek").onclick=()=>{view="week";render();};
 document.getElementById("viewMonth").onclick=()=>{view="month";render();};
+document.getElementById("viewTasks").onclick=()=>{view="tasks";render();};
 document.getElementById("prev").onclick=()=>{cursor=view==="month"?shiftMonth(cursor,-1):shiftDays(cursor,view==="week"?-7:-1);if(view==="day")selectedKey=keyOf(cursor);render();};
 document.getElementById("next").onclick=()=>{cursor=view==="month"?shiftMonth(cursor,1):shiftDays(cursor,view==="week"?7:1);if(view==="day")selectedKey=keyOf(cursor);render();};
 document.getElementById("today").onclick=()=>{cursor=new Date();selectedKey=keyOf(cursor);render();};
@@ -1056,6 +1183,7 @@ function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
     const nested=(window.opener && window.opener!==window) || (window.parent && window.parent!==window);
     if(nested && /[?#&](code|error|state|session_state)=/.test(location.href)) return;
   }catch(e){}
+  ensureSeed(); migrateTodos();
   ingest(SNAPSHOT);
   setStatus("","Demó adatok","Beépített pillanatkép · nincs bejelentkezve");
   updateSyncButtons();

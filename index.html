@@ -96,6 +96,12 @@
   .syncstatus.loading .led{background:var(--accent); animation:pulse 1s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   .syncmeta{font-size:12px; color:var(--muted)}
+  .spchip{font-size:12px; font-weight:600; color:var(--muted); display:inline-flex; align-items:center; gap:6px}
+  .spchip::before{content:""; width:8px; height:8px; border-radius:50%; background:var(--faint); flex:0 0 auto}
+  .spchip.live::before{background:var(--ok)}
+  .spchip.err::before{background:var(--err)}
+  .spchip.loading::before{background:var(--accent); animation:pulse 1s infinite}
+  .spchip[hidden]{display:none}
   .syncbtns{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
   .btn{height:34px; padding:0 14px; border-radius:9px; font-weight:600; font-size:13px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink-soft); display:inline-flex; align-items:center; gap:7px; transition:.15s}
   .btn:hover{border-color:var(--line-strong); color:var(--ink)}
@@ -382,6 +388,7 @@
   <div class="syncbar">
     <span class="syncstatus" id="syncStatus"><span class="led"></span><span id="syncText">Demó adatok</span></span>
     <span class="syncmeta" id="syncMeta">Beépített pillanatkép · nincs bejelentkezve</span>
+    <span class="spchip" id="spChip" hidden></span>
     <div class="syncbtns">
       <button class="btn" id="refreshBtn" hidden>↻ Frissítés</button>
       <button class="btn primary" id="connectBtn">Csatlakozás az Outlookhoz</button>
@@ -443,6 +450,11 @@
       <label for="tenantInput">Directory (tenant) ID vagy tartomány <span style="color:var(--faint);font-weight:400">— nem kötelező</span></label>
       <input id="tenantInput" type="text" placeholder="common (alap) · vagy qualitassystem.hu · vagy tenant GUID" autocomplete="off" spellcheck="false">
       <div class="hint">Ha üresen hagyod: <code>common</code>. Céges fiókhoz általában a tenant GUID vagy a domain a legjobb.</div>
+    </div>
+    <div class="field">
+      <label for="siteInput">SharePoint webhely URL <span style="color:var(--faint);font-weight:400">— közös feladat-szinkronhoz, nem kötelező</span></label>
+      <input id="siteInput" type="text" placeholder="https://ceged.sharepoint.com/sites/Tervezo" autocomplete="off" spellcheck="false">
+      <div class="hint">Ha megadod, a projektek/feladatok a céges SharePointon tárolódnak (a <b>Projektek</b> és <b>Feladatok</b> listákat az app automatikusan létrehozza). Üresen hagyva minden a böngésződben marad.</div>
     </div>
     <div class="field">
       <label>Redirect URI (SPA) — ezt add hozzá az Azure appban</label>
@@ -562,7 +574,9 @@ function monthDays(date){
    MICROSOFT GRAPH ÉLŐ SZINKRON (MSAL)
    ============================================================ */
 const CFG_KEY="planner-msal-cfg";
+const SCOPES=["Calendars.Read","Sites.ReadWrite.All"];
 let pca=null, account=null, live=false, refreshTimer=null;
+let SP={connected:false, siteId:null, lists:{projekt:null,feladat:null}, map:{proj:{},task:{}}};
 
 /* MSAL könyvtár betöltése több CDN-es tartalékkal */
 const MSAL_CDNS=[
@@ -613,7 +627,7 @@ async function connect(){
     // Átirányításos (redirect) folyamat – nincs felugró ablak. Az oldal
     // átnavigál a Microsoft bejelentkezéshez, majd visszatér ide; a
     // folytatás a boot()-ban, a handleRedirectPromise() eredménye alapján.
-    await pca.loginRedirect({scopes:["Calendars.Read"],prompt:"select_account"});
+    await pca.loginRedirect({scopes:SCOPES,prompt:"select_account"});
   }catch(e){
     console.error(e);
     live=false;
@@ -621,8 +635,8 @@ async function connect(){
     updateSyncButtons();
   }
 }
-async function getToken(){
-  const req={scopes:["Calendars.Read"],account};
+async function getToken(scopes){
+  const req={scopes:scopes||["Calendars.Read"],account};
   try{ const r=await pca.acquireTokenSilent(req); return r.accessToken; }
   catch(e){ setStatus("loading","Átirányítás a bejelentkezéshez…",""); pca.acquireTokenRedirect(req); throw new Error("redirect_in_progress"); }
 }
@@ -678,6 +692,7 @@ async function refresh(showOverlay){
     document.getElementById("whoLabel").innerHTML="Naptár: <b>"+esc(account.name||account.username)+"</b> · élő szinkron";
     document.getElementById("foot").textContent="Élőben szinkronizálva "+account.username+" fiókból · utolsó frissítés "+hm(stamp.minutes)+" · időzóna Budapest";
     render();
+    if(loadCfg()&&loadCfg().siteUrl){ try{ await spSync(); }catch(spErr){ console.error(spErr); setSpStatus("err","SharePoint hiba",(spErr.message||"").slice(0,140)); } }
   }catch(e){
     if((e&&e.message)==="redirect_in_progress") return; // az oldal éppen átirányít
     console.error(e);
@@ -688,6 +703,106 @@ async function refresh(showOverlay){
   }
 }
 function startAutoRefresh(){ if(refreshTimer)clearInterval(refreshTimer); refreshTimer=setInterval(()=>refresh(false),5*60*1000); }
+
+/* ============================================================
+   SHAREPOINT SZINKRON (projektek & feladatok — Microsoft Graph)
+   ============================================================ */
+function setSpStatus(cls,text,meta){
+  const el=document.getElementById("spChip"); if(!el)return;
+  el.hidden=false; el.className="spchip"+(cls?" "+cls:""); el.textContent=text; el.title=meta||"";
+}
+async function graph(method,path,body){
+  const token=await getToken(["Sites.ReadWrite.All"]);
+  const url=path.indexOf("http")===0?path:("https://graph.microsoft.com/v1.0"+path);
+  const res=await fetch(url,{method,headers:Object.assign({Authorization:"Bearer "+token},body?{"Content-Type":"application/json"}:{}),body:body?JSON.stringify(body):undefined});
+  if(res.status===204) return null;
+  const txt=await res.text(); let data=null; try{data=txt?JSON.parse(txt):null;}catch(e){}
+  if(!res.ok) throw new Error("Graph "+res.status+": "+(((data&&data.error&&data.error.message)||txt||"")+"").slice(0,180));
+  return data;
+}
+async function graphAll(path){ let url=path,out=[]; while(url){ const d=await graph("GET",url); (d&&d.value||[]).forEach(x=>out.push(x)); url=(d&&d["@odata.nextLink"])||null; } return out; }
+function spListPath(which){ return "/sites/"+SP.siteId+"/lists/"+(which==="feladat"?SP.lists.feladat:SP.lists.projekt); }
+function spTaskFields(t){ return {Title:(t.title||"Feladat").slice(0,255), AppId:t.id, ProjectId:t.projectId||"", Data:JSON.stringify({projectId:t.projectId,done:!!t.done,due:t.due||null,time:(typeof t.time==="number"?t.time:null),dur:t.dur||60,kind:t.kind||"task",priority:t.priority||"normal",subtasks:t.subtasks||[],notes:t.notes||""})}; }
+function spProjectFields(p){ return {Title:(p.name||"Projekt").slice(0,255), AppId:p.id, Data:JSON.stringify({kind:p.kind||"task"})}; }
+
+async function spResolveSite(siteUrl){
+  const u=new URL(siteUrl); const host=u.hostname; const path=u.pathname.replace(/\/+$/,"");
+  const rel=path?(host+":"+path):host;
+  const site=await graph("GET","/sites/"+rel);
+  if(!site||!site.id) throw new Error("A webhely nem található ezen a címen.");
+  return site.id;
+}
+async function spEnsureLists(){
+  const d=await graph("GET","/sites/"+SP.siteId+"/lists?$select=id,displayName&$top=200");
+  let proj=(d.value||[]).find(l=>l.displayName==="Projektek");
+  let task=(d.value||[]).find(l=>l.displayName==="Feladatok");
+  if(!proj) proj=await graph("POST","/sites/"+SP.siteId+"/lists",{displayName:"Projektek",list:{template:"genericList"},columns:[{name:"AppId",text:{}},{name:"Data",text:{allowMultipleLines:true}}]});
+  if(!task) task=await graph("POST","/sites/"+SP.siteId+"/lists",{displayName:"Feladatok",list:{template:"genericList"},columns:[{name:"AppId",text:{}},{name:"ProjectId",text:{}},{name:"Data",text:{allowMultipleLines:true}}]});
+  SP.lists.projekt=proj.id; SP.lists.feladat=task.id;
+}
+async function spPull(){
+  const pj=await graphAll(spListPath("projekt")+"/items?expand=fields&$top=200");
+  const projects=[]; SP.map.proj={};
+  pj.forEach(it=>{ const f=it.fields||{}; let d={}; try{d=JSON.parse(f.Data||"{}");}catch(e){} const id=f.AppId||("sp"+it.id); projects.push({id,name:f.Title||"Projekt",kind:BLOCK_CATS[d.kind]?d.kind:"task"}); SP.map.proj[id]=it.id; });
+  saveProjects(projects);
+  const firstProj=projects[0]&&projects[0].id||"";
+  const tk=await graphAll(spListPath("feladat")+"/items?expand=fields&$top=200");
+  const tasks=[]; SP.map.task={};
+  tk.forEach(it=>{ const f=it.fields||{}; let d={}; try{d=JSON.parse(f.Data||"{}");}catch(e){} const id=f.AppId||("sp"+it.id);
+    tasks.push({id,projectId:f.ProjectId||d.projectId||firstProj,title:f.Title||"Feladat",done:!!d.done,due:d.due||null,
+      time:(typeof d.time==="number"?d.time:null),dur:d.dur||60,kind:BLOCK_CATS[d.kind]?d.kind:"task",
+      priority:PRIOS[d.priority]?d.priority:"normal",subtasks:Array.isArray(d.subtasks)?d.subtasks:[],notes:d.notes||""});
+    SP.map.task[id]=it.id; });
+  saveTasks(tasks);
+}
+async function spWriteTask(t){
+  if(!SP.siteId) return;
+  try{ const ex=SP.map.task[t.id];
+    if(ex) await graph("PATCH",spListPath("feladat")+"/items/"+ex+"/fields",spTaskFields(t));
+    else { const r=await graph("POST",spListPath("feladat")+"/items",{fields:spTaskFields(t)}); if(r)SP.map.task[t.id]=r.id; }
+  }catch(e){ console.error(e); setSpStatus("err","SharePoint mentés hiba",(e.message||"").slice(0,120)); }
+}
+async function spDeleteTask(id){ if(!SP.siteId)return; const ex=SP.map.task[id]; if(!ex)return; try{ await graph("DELETE",spListPath("feladat")+"/items/"+ex); delete SP.map.task[id]; }catch(e){ console.error(e); setSpStatus("err","SharePoint törlés hiba",(e.message||"").slice(0,120)); } }
+async function spWriteProject(p){
+  if(!SP.siteId) return;
+  try{ const ex=SP.map.proj[p.id];
+    if(ex) await graph("PATCH",spListPath("projekt")+"/items/"+ex+"/fields",spProjectFields(p));
+    else { const r=await graph("POST",spListPath("projekt")+"/items",{fields:spProjectFields(p)}); if(r)SP.map.proj[p.id]=r.id; }
+  }catch(e){ console.error(e); setSpStatus("err","SharePoint mentés hiba",(e.message||"").slice(0,120)); }
+}
+async function spDeleteProject(id){ if(!SP.siteId)return; const ex=SP.map.proj[id]; if(!ex)return; try{ await graph("DELETE",spListPath("projekt")+"/items/"+ex); delete SP.map.proj[id]; }catch(e){ console.error(e); } }
+async function spConnect(){
+  const cfg=loadCfg(); if(!cfg||!cfg.siteUrl) return;
+  try{
+    setSpStatus("loading","SharePoint: kapcsolódás…");
+    SP.siteId=await spResolveSite(cfg.siteUrl);
+    await spEnsureLists();
+    const localProjects=loadProjects().slice(), localTasks=loadTasks().slice();
+    await spPull();
+    const seededKey="planner-sp-seeded:"+SP.siteId;
+    const spEmpty=(loadProjects().length===0 && loadTasks().length===0);
+    if(spEmpty && !localStorage.getItem(seededKey) && (localTasks.length>0 || localProjects.length>0)){
+      setSpStatus("loading","SharePoint: kezdeti feltöltés…");
+      saveProjects(localProjects.length?localProjects:ensureSeed()); saveTasks(localTasks);
+      for(const p of loadProjects()) await spWriteProject(p);
+      for(const t of loadTasks()) await spWriteTask(t);
+    } else if(loadProjects().length===0){
+      const seed=ensureSeed(); for(const p of seed) await spWriteProject(p);
+    }
+    localStorage.setItem(seededKey,"1");
+    SP.connected=true;
+    setSpStatus("live","Feladatok: SharePoint szinkron", cfg.siteUrl);
+    render();
+  }catch(e){
+    console.error(e); SP.connected=false;
+    setSpStatus("err","SharePoint hiba", (e.message||"").slice(0,160));
+  }
+}
+async function spSync(){
+  const cfg=loadCfg(); if(!cfg||!cfg.siteUrl) return;
+  if(!SP.connected) await spConnect();
+  else { try{ await spPull(); render(); setSpStatus("live","Feladatok: SharePoint szinkron"); }catch(e){ console.error(e); setSpStatus("err","SharePoint hiba",(e.message||"").slice(0,140)); } }
+}
 function signOut(){
   live=false; if(refreshTimer)clearInterval(refreshTimer);
   try{ if(pca&&account) pca.logoutPopup({account}).catch(()=>{}); }catch(e){}
@@ -718,6 +833,7 @@ function openSettings(){
   const cfg=loadCfg()||{};
   document.getElementById("cidInput").value=cfg.clientId||"";
   document.getElementById("tenantInput").value=cfg.tenant||"";
+  document.getElementById("siteInput").value=cfg.siteUrl||"";
   document.getElementById("redirectUri").textContent=redirectUri();
   document.getElementById("settingsBg").classList.add("open");
 }
@@ -730,8 +846,14 @@ document.getElementById("copyRedirect").onclick=()=>{navigator.clipboard&&naviga
 document.getElementById("saveConnect").onclick=()=>{
   const clientId=document.getElementById("cidInput").value.trim();
   const tenant=document.getElementById("tenantInput").value.trim();
+  const siteUrl=document.getElementById("siteInput").value.trim();
   if(!clientId){document.getElementById("cidInput").focus();return;}
-  saveCfg({clientId,tenant}); pca=null; closeSettings(); connect();
+  const prev=loadCfg()||{};
+  saveCfg({clientId,tenant,siteUrl});
+  closeSettings();
+  if(account&&pca&&prev.clientId===clientId&&(prev.tenant||"")===(tenant||"")){
+    SP.connected=false; SP.siteId=null; refresh(true); // csak a feladat-szinkront (SharePoint) frissítjük
+  }else{ pca=null; connect(); }
 };
 document.getElementById("connectBtn").onclick=connect;
 document.getElementById("refreshBtn").onclick=()=>refresh(true);
@@ -1065,8 +1187,8 @@ let TASK_CACHE=null;
 function loadTasks(){if(!TASK_CACHE){try{TASK_CACHE=JSON.parse(localStorage.getItem("planner-tasks")||"[]")}catch(e){TASK_CACHE=[]}}return TASK_CACHE;}
 function saveTasks(a){TASK_CACHE=a;try{localStorage.setItem("planner-tasks",JSON.stringify(a))}catch(e){}}
 function taskById(id){return loadTasks().find(t=>t.id===id);}
-function upsertTask(t){const a=loadTasks().slice();const i=a.findIndex(x=>x.id===t.id);if(i<0)a.push(t);else a[i]=t;saveTasks(a);}
-function deleteTask(id){saveTasks(loadTasks().filter(t=>t.id!==id));}
+function upsertTask(t){const a=loadTasks().slice();const i=a.findIndex(x=>x.id===t.id);if(i<0)a.push(t);else a[i]=t;saveTasks(a); if(SP.connected) spWriteTask(t);}
+function deleteTask(id){saveTasks(loadTasks().filter(t=>t.id!==id)); if(SP.connected) spDeleteTask(id);}
 function toggleTaskDone(id){const t=taskById(id);if(t){upsertTask({...t,done:!t.done});render();}}
 function ensureSeed(){let ps=loadProjects();if(!ps.length){ps=[{id:uid(),name:"Általános",kind:"task"}];saveProjects(ps);}return ps;}
 function defaultProjectId(){return ensureSeed()[0].id;}
@@ -1171,9 +1293,9 @@ function dueChip(t){
   const timePart=typeof t.time==="number"?(" · "+hm(t.time)):"";
   return `<span class="tv-duechip">${mo}. ${d}.${timePart} <small>${relDay(dObj)}</small></span>`;
 }
-function addProject(){const name=prompt("Új projekt neve:");if(name&&name.trim()){const ps=loadProjects();ps.push({id:uid(),name:name.trim(),kind:getLastKind()});saveProjects(ps);render();}}
-function renameProject(id){const ps=loadProjects();const p=ps.find(x=>x.id===id);if(!p)return;const name=prompt("Projekt neve:",p.name);if(name&&name.trim()){p.name=name.trim();saveProjects(ps);render();}}
-function removeProject(id){const inProj=loadTasks().filter(t=>t.projectId===id);if(inProj.length && !confirm("A projektben "+inProj.length+" feladat van. Törlöd a projektet a feladataival együtt?"))return;saveTasks(loadTasks().filter(t=>t.projectId!==id));saveProjects(loadProjects().filter(p=>p.id!==id));render();}
+function addProject(){const name=prompt("Új projekt neve:");if(name&&name.trim()){const ps=loadProjects();const p={id:uid(),name:name.trim(),kind:getLastKind()};ps.push(p);saveProjects(ps);if(SP.connected)spWriteProject(p);render();}}
+function renameProject(id){const ps=loadProjects();const p=ps.find(x=>x.id===id);if(!p)return;const name=prompt("Projekt neve:",p.name);if(name&&name.trim()){p.name=name.trim();saveProjects(ps);if(SP.connected)spWriteProject(p);render();}}
+function removeProject(id){const inProj=loadTasks().filter(t=>t.projectId===id);if(inProj.length && !confirm("A projektben "+inProj.length+" feladat van. Törlöd a projektet a feladataival együtt?"))return;saveTasks(loadTasks().filter(t=>t.projectId!==id));saveProjects(loadProjects().filter(p=>p.id!==id));if(SP.connected){inProj.forEach(t=>spDeleteTask(t.id));spDeleteProject(id);}render();}
 
 /* ---------- Feladat szerkesztő ---------- */
 function parseTimeInput(v){if(!v||v.indexOf(":")<0)return 540;const p=v.split(":");return (+p[0])*60+(+p[1]||0);}

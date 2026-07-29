@@ -284,6 +284,37 @@
   .tv-duechip{font-size:11.5px; font-weight:600; color:var(--ink-soft); background:var(--surface-3); border:1px solid var(--line); border-radius:20px; padding:2px 9px; white-space:nowrap}
   .tv-duechip small{color:var(--muted); font-weight:500}
   .tv-nodue{font-size:11.5px; color:var(--faint)}
+  .tv-meta{display:flex; align-items:center; gap:6px; flex:0 0 auto}
+
+  /* prioritás */
+  .prio-chip{border:1px solid var(--line); background:var(--surface-2); border-radius:20px; padding:6px 12px; font-size:12px; font-weight:600; color:var(--ink-soft); font-family:inherit}
+  .prio-chip.sel{color:#fff; border-color:transparent}
+  .prio-chip.prio-high.sel{background:var(--now)}
+  .prio-chip.prio-normal.sel{background:var(--muted)}
+  .prio-chip.prio-low.sel{background:var(--meet)}
+  .prio-badge{font-size:10px; font-weight:700; padding:1px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.03em}
+  .prio-badge.high{background:color-mix(in srgb,var(--now) 16%,var(--surface)); color:var(--now); border:1px solid color-mix(in srgb,var(--now) 34%,var(--surface))}
+  .prio-badge.low{background:var(--surface-3); color:var(--muted); border:1px solid var(--line)}
+  .sub-badge{font-size:11px; color:var(--muted); font-weight:600}
+
+  /* alfeladatok */
+  .subs{display:flex; flex-direction:column; gap:2px; margin-bottom:8px}
+  .sub-empty{font-size:12px; color:var(--faint); padding:2px 0}
+  .sub-row{display:flex; align-items:center; gap:8px; padding:3px 0}
+  .sub-row .sub-check{width:18px; height:18px; border-radius:5px; border:1.5px solid var(--line-strong); background:var(--surface); display:grid; place-items:center; color:#fff; font-size:11px; padding:0; flex:0 0 auto; cursor:pointer}
+  .sub-row.done .sub-check{background:var(--task); border-color:var(--task)}
+  .sub-row.done .sub-txt{color:var(--faint); text-decoration:line-through}
+  .sub-txt{flex:1; font-size:13px; min-width:0}
+  .sub-row .sub-del{border:0; background:transparent; color:var(--faint); font-size:15px; cursor:pointer; padding:0 4px}
+  .sub-add{display:flex; gap:8px}
+  .sub-add input{flex:1; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:9px; padding:7px 10px; font-size:13px; font-family:inherit}
+  .sub-add button{background:var(--accent); color:#fff; border:0; border-radius:9px; padding:0 13px; font-weight:600; font-size:16px}
+
+  /* húzás (drag & drop) */
+  .event.blk,.mchip.mblk{touch-action:none}
+  .col.drop{background:color-mix(in srgb,var(--accent) 12%,var(--surface)) !important}
+  .mcell.drop{box-shadow:inset 0 0 0 2px var(--accent); background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+  body.dragging{cursor:grabbing; -webkit-user-select:none; user-select:none}
 
   /* teendő-szerkesztő mező-elemek */
   .te-day{font-size:12.5px; color:var(--muted); margin:-4px 0 2px}
@@ -492,6 +523,8 @@ const BLOCK_ORDER=["dev","ops","ana","sal","acc","task"];
 function getLastKind(){const k=localStorage.getItem("planner-lastkind");return BLOCK_CATS[k]?k:"dev";}
 function setLastKind(k){try{localStorage.setItem("planner-lastkind",k)}catch(e){}}
 function hoursFmt(mins){ if(!mins) return "0"; const h=mins/60; const s=(Math.round(h*10)/10).toString().replace(".",","); return s+" ó"; }
+const PRIOS={high:{label:"Magas"},normal:{label:"Közepes"},low:{label:"Alacsony"}};
+function prioNum(p){return p==="high"?0:(p==="low"?2:1);}
 
 /* ---------- Állapot ---------- */
 let GRID_START=6, GRID_END=20; const HOURH=72;
@@ -708,6 +741,48 @@ document.getElementById("signoutBtn").onclick=signOut;
    RENDERELÉS
    ============================================================ */
 const board=document.getElementById("board");
+
+/* ---------- Húzás: feladat áthelyezése másik napra/időpontra (egér + érintő) ---------- */
+function dropTarget(x,y,mode){
+  const node=document.elementFromPoint(x,y); if(!node) return null;
+  if(mode==="grid"){
+    const col=node.closest(".col"); if(!col||!col.dataset.day) return null;
+    const yy=y-col.getBoundingClientRect().top;
+    let mins=GRID_START*60+Math.round((yy/HOURH*60)/15)*15;
+    mins=Math.max(GRID_START*60,Math.min(GRID_END*60-15,mins));
+    return {el:col,day:col.dataset.day,time:mins};
+  }
+  const cell=node.closest(".mcell"); if(!cell||!cell.dataset.day) return null;
+  return {el:cell,day:cell.dataset.day,time:null};
+}
+function attachTaskDrag(el,taskId,mode){
+  el.addEventListener("pointerdown",(e)=>{
+    if(e.button&&e.button!==0) return;
+    if(e.target.closest(".tb-check")) return; // a pipa saját kezelést kap
+    const sx=e.clientX, sy=e.clientY; let moved=false, ghost=null;
+    try{el.setPointerCapture(e.pointerId);}catch(_){}
+    const clearDrop=()=>document.querySelectorAll(".col.drop,.mcell.drop").forEach(c=>c.classList.remove("drop"));
+    const move=(ev)=>{
+      if(!moved && Math.hypot(ev.clientX-sx,ev.clientY-sy)<6) return;
+      moved=true; document.body.classList.add("dragging");
+      if(!ghost){ghost=el.cloneNode(true);Object.assign(ghost.style,{position:"fixed",pointerEvents:"none",opacity:".92",zIndex:9999,width:el.offsetWidth+"px",margin:"0",left:"0",top:"0",boxShadow:"0 8px 24px rgba(0,0,0,.25)"});document.body.appendChild(ghost);el.style.opacity=".3";}
+      ghost.style.transform=`translate(${ev.clientX-24}px,${ev.clientY-12}px)`;
+      clearDrop(); const tgt=dropTarget(ev.clientX,ev.clientY,mode); if(tgt&&tgt.el) tgt.el.classList.add("drop");
+    };
+    const up=(ev)=>{
+      el.removeEventListener("pointermove",move); el.removeEventListener("pointerup",up); el.removeEventListener("pointercancel",up);
+      document.body.classList.remove("dragging"); clearDrop();
+      if(ghost) ghost.remove(); el.style.opacity="";
+      if(moved){
+        const tgt=dropTarget(ev.clientX,ev.clientY,mode);
+        if(tgt){ const t=taskById(taskId); if(t){ const upd={...t,due:tgt.day}; if(mode==="grid"&&tgt.time!=null) upd.time=tgt.time; upsertTask(upd); render(); } }
+      }else{
+        editTask(taskId);
+      }
+    };
+    el.addEventListener("pointermove",move); el.addEventListener("pointerup",up); el.addEventListener("pointercancel",up);
+  });
+}
 function periodEventCounts(days){
   let meet=0,task=0,social=0;
   for(const dd of days){for(const ev of (BY_DAY[keyOf(dd)]||[])){if(ev.cat==="task")task++;else if(ev.cat==="social")social++;else meet++;}}
@@ -765,20 +840,32 @@ function buildMonth(days){
     const k=keyOf(dd), dl=local(dd);
     const cell=document.createElement("div");
     cell.className="mcell"+(dl.mo!==curMonth?" other":"")+(k===todayKey?" today":"")+(k===selectedKey?" sel":"");
+    cell.dataset.day=k;
     const items=[];
     (BY_DAY[k]||[]).forEach(e=>items.push({s:e.allday?-1:e.startMin,ev:e}));
     scheduledTodos(k).forEach(b=>items.push({s:b.startMin,blk:b}));
     dueTasks(k).forEach(d=>items.push({s:1e9,due:d}));
     items.sort((a,b)=>a.s-b.s);
     const shown=items.slice(0,4);
-    let chips="";
+    cell.innerHTML=`<div class="mnum">${dl.d}</div>`;
+    const chipsWrap=document.createElement("div"); chipsWrap.className="mchips";
     shown.forEach(it=>{
-      if(it.ev) chips+=`<div class="mchip ev cat-${it.ev.cat}">${it.ev.allday?"":hm(it.ev.startMin)+" "}${esc(it.ev.t)}</div>`;
-      else if(it.blk) chips+=`<div class="mchip mblk k-${it.blk.kind}${it.blk.done?" done":""}">${hm(it.blk.startMin)} ${esc(it.blk.text)}</div>`;
-      else chips+=`<div class="mchip mblk k-${BLOCK_CATS[it.due.kind]?it.due.kind:"task"}${it.due.done?" done":""}">⏳ ${esc(it.due.title)}</div>`;
+      const c=document.createElement("div");
+      if(it.ev){
+        c.className="mchip ev cat-"+it.ev.cat;
+        c.textContent=(it.ev.allday?"":hm(it.ev.startMin)+" ")+it.ev.t;
+        c.onclick=(e)=>{e.stopPropagation();openModal(it.ev);};
+      }else{
+        const task=it.blk||it.due; const kind=BLOCK_CATS[task.kind]?task.kind:"task";
+        c.className="mchip mblk k-"+kind+(task.done?" done":"");
+        c.textContent=it.blk?(hm(it.blk.startMin)+" "+it.blk.text):("⏳ "+it.due.title);
+        c.onclick=(e)=>{e.stopPropagation();};
+        attachTaskDrag(c, it.blk?it.blk.taskId:it.due.id, "month");
+      }
+      chipsWrap.appendChild(c);
     });
-    if(items.length>4) chips+=`<div class="mmore">+${items.length-4} további</div>`;
-    cell.innerHTML=`<div class="mnum">${dl.d}</div><div class="mchips">${chips}</div>`;
+    if(items.length>4){const more=document.createElement("div");more.className="mmore";more.textContent="+"+(items.length-4)+" további";chipsWrap.appendChild(more);}
+    cell.appendChild(chipsWrap);
     cell.onclick=()=>{ selectedKey=k; cursor=new Date(Date.UTC(dl.y,dl.mo-1,dl.d,12)); view="day"; render(); };
     gm.appendChild(cell);
   });
@@ -859,7 +946,7 @@ function buildBoard(days){
   days.forEach(dd=>{
     const k=keyOf(dd);
     const col=document.createElement("div"); col.className="col"+(k===todayKey?" today-col":"");
-    col.style.height=totalH+"px";
+    col.dataset.day=k; col.style.height=totalH+"px";
     for(let h=GRID_START;h<=GRID_END;h++){
       const line=document.createElement("div"); line.className="hourline"; line.style.top=((h-GRID_START)*HOURH)+"px"; col.appendChild(line);
       if(h<GRID_END){const half=document.createElement("div"); half.className="hourline half"; half.style.top=((h-GRID_START)*HOURH+HOURH/2)+"px"; col.appendChild(half);}
@@ -878,7 +965,8 @@ function buildBoard(days){
         el.className="event blk k-"+(ev.kind||"task")+(ev.done?" done":"")+(hgt<38?" compact":"");
         el.innerHTML=`<div class="tb-check">${ev.done?"✓":""}</div><div class="ev-t">${esc(ev.text)}</div><div class="ev-time">${hm(ev.startMin)}–${hm(ev.endMin)}</div>`;
         el.querySelector(".tb-check").onclick=(e)=>{e.stopPropagation();toggleTaskDone(ev.taskId);};
-        el.onclick=(e)=>{e.stopPropagation();editTask(ev.taskId);};
+        el.onclick=(e)=>{e.stopPropagation();}; // kattintást/húzást a pointer-kezelő intézi
+        attachTaskDrag(el,ev.taskId,"grid");
       }else{
         el.className="event cat-"+ev.cat+(ev.tent?" tent":"")+(hgt<40?" compact":"");
         el.innerHTML=`<div class="ev-t">${esc(ev.t)}</div><div class="ev-time">${hm(ev.startMin)}–${hm(ev.endMin)}</div>`+(ev.loc?`<div class="ev-loc">${esc(ev.loc)}</div>`:"");
@@ -1005,7 +1093,7 @@ function renderTodos(){
   const key=currentDayKey(); const [y,mo,d]=key.split("-").map(Number);
   document.getElementById("todoSub").textContent=`${mo}. ${d}. — a nap feladatai`;
   const list=document.getElementById("todoList");
-  const items=loadTasks().filter(t=>t.due===key).sort((a,b)=>(a.done-b.done)||(((a.time!=null?a.time:1e9))-((b.time!=null?b.time:1e9)))||a.title.localeCompare(b.title));
+  const items=loadTasks().filter(t=>t.due===key).sort((a,b)=>(a.done-b.done)||(((a.time!=null?a.time:1e9))-((b.time!=null?b.time:1e9)))||(prioNum(a.priority)-prioNum(b.priority))||a.title.localeCompare(b.title));
   if(!items.length){list.innerHTML=`<div class="todo-empty">Nincs feladat erre a napra.<br>Írj be egyet lent, vagy a <b>Feladatok</b> nézetben tedd projekthez.</div>`;return;}
   list.innerHTML="";
   items.forEach(t=>{
@@ -1054,14 +1142,19 @@ function buildTasksView(){
     const delb=head.querySelector('[data-a="del"]'); if(delb) delb.onclick=()=>removeProject(p.id);
     card.appendChild(head);
     const listEl=document.createElement("div"); listEl.className="proj-tasks";
-    const sorted=pt.slice().sort((a,b)=>(a.done-b.done)||((a.due||"9999-99").localeCompare(b.due||"9999-99"))||(((a.time!=null?a.time:1e9))-((b.time!=null?b.time:1e9))));
+    const sorted=pt.slice().sort((a,b)=>(a.done-b.done)||(prioNum(a.priority)-prioNum(b.priority))||((a.due||"9999-99").localeCompare(b.due||"9999-99"))||(((a.time!=null?a.time:1e9))-((b.time!=null?b.time:1e9))));
     if(!sorted.length) listEl.innerHTML=`<div class="proj-empty">Nincs feladat — kattints a „+ feladat"-ra.</div>`;
     else sorted.forEach(t=>{
-      const kind=BLOCK_CATS[t.kind]?t.kind:"task";
+      const kind=BLOCK_CATS[t.kind]?t.kind:"task"; const tp=t.priority||"normal";
+      const subs=t.subtasks||[]; const doneS=subs.filter(s=>s.done).length;
       const row=document.createElement("div"); row.className="tv-task"+(t.done?" done":"");
       row.innerHTML=`<button class="check" aria-label="Kész">${t.done?"✓":""}</button>`+
         `<span class="kdot k-${kind}"></span>`+
         `<div class="tv-ttl">${esc(t.title)}</div>`+
+        `<div class="tv-meta">`+
+          (tp==="high"?`<span class="prio-badge high">Magas</span>`:(tp==="low"?`<span class="prio-badge low">Alacsony</span>`:""))+
+          (subs.length?`<span class="sub-badge">☑ ${doneS}/${subs.length}</span>`:"")+
+        `</div>`+
         `<div class="tv-due">${t.due?dueChip(t):`<span class="tv-nodue">nincs dátum</span>`}</div>`;
       row.querySelector(".check").onclick=(e)=>{e.stopPropagation();toggleTaskDone(t.id);};
       row.onclick=()=>editTask(t.id);
@@ -1085,10 +1178,11 @@ function removeProject(id){const inProj=loadTasks().filter(t=>t.projectId===id);
 /* ---------- Feladat szerkesztő ---------- */
 function parseTimeInput(v){if(!v||v.indexOf(":")<0)return 540;const p=v.split(":");return (+p[0])*60+(+p[1]||0);}
 function editTask(id){const t=taskById(id);if(t)showTaskModal(t);}
-function newTask(prefill){showTaskModal(Object.assign({id:null,projectId:defaultProjectId(),title:"",done:false,due:null,time:null,dur:60,kind:getLastKind(),notes:""},prefill||{}));}
+function newTask(prefill){showTaskModal(Object.assign({id:null,projectId:defaultProjectId(),title:"",done:false,due:null,time:null,dur:60,kind:getLastKind(),notes:"",priority:"normal",subtasks:[]},prefill||{}));}
 function showTaskModal(t){
-  const isNew=!t.id; const DURS=[15,30,45,60,90,120,180];
-  let selKind=BLOCK_CATS[t.kind]?t.kind:"task", selDur=t.dur||60, hasTime=typeof t.time==="number", selProj=t.projectId||defaultProjectId();
+  const isNew=!t.id; const DURS=[15,30,45,60,90,120,180]; const PRIO_ORDER=["high","normal","low"];
+  let selKind=BLOCK_CATS[t.kind]?t.kind:"task", selDur=t.dur||60, hasTime=typeof t.time==="number", selProj=t.projectId||defaultProjectId(), selPrio=PRIOS[t.priority]?t.priority:"normal";
+  let subs=(t.subtasks||[]).map(s=>({title:s.title,done:!!s.done}));
   const projects=ensureSeed();
   const m=document.getElementById("modal");
   m.innerHTML=
@@ -1102,6 +1196,9 @@ function showTaskModal(t){
     `<div class="field"><label>Kategória</label><div class="cat-opts" id="tkCat">`+
       BLOCK_ORDER.map(k=>`<button type="button" data-k="${k}" class="cat-chip k-${k}${k===selKind?" sel":""}">${BLOCK_CATS[k].label}</button>`).join("")+
     `</div></div>`+
+    `<div class="field"><label>Prioritás</label><div class="cat-opts" id="tkPrio">`+
+      PRIO_ORDER.map(p=>`<button type="button" data-p="${p}" class="prio-chip prio-${p}${p===selPrio?" sel":""}">${PRIOS[p].label}</button>`).join("")+
+    `</div></div>`+
     `<div class="field"><label for="tkDue">Határidő / nap</label><input class="te-time" id="tkDue" type="date" value="${t.due||""}"></div>`+
     `<label class="te-done" style="margin-top:12px"><input type="checkbox" id="tkTimed" ${hasTime?"checked":""}> Időpontot is adok (megjelenik a naptár idővonalán)</label>`+
     `<div id="tkTimeWrap" style="${hasTime?"":"display:none"}">`+
@@ -1110,13 +1207,32 @@ function showTaskModal(t){
         DURS.map(x=>`<button type="button" data-d="${x}" class="${x===selDur?"sel":""}">${x<60?x+" p":(x%60?Math.floor(x/60)+" ó "+(x%60)+" p":x/60+" ó")}</button>`).join("")+
       `</div></div>`+
     `</div>`+
-    `<label class="te-done"><input type="checkbox" id="tkDone" ${t.done?"checked":""}> Kész</label>`+
+    `<div class="field"><label>Alfeladatok</label><div class="subs" id="tkSubs"></div>`+
+      `<div class="sub-add"><input id="tkSubInput" type="text" maxlength="120" placeholder="Új alfeladat…"><button type="button" id="tkSubAdd">+</button></div></div>`+
+    `<label class="te-done"><input type="checkbox" id="tkDone" ${t.done?"checked":""}> Kész (fő feladat)</label>`+
     `<div class="m-actions">`+
       `<button class="primary" id="tkSave">${isNew?"Hozzáadás":"Mentés"}</button>`+
       (!isNew?`<button class="ghost" id="tkDelete" style="color:var(--now)">Törlés</button>`:"")+
     `</div>`;
+  function renderSubs(){
+    const c=document.getElementById("tkSubs");
+    if(!subs.length){c.innerHTML=`<div class="sub-empty">Nincs alfeladat.</div>`;return;}
+    c.innerHTML="";
+    subs.forEach((s,i)=>{
+      const r=document.createElement("div"); r.className="sub-row"+(s.done?" done":"");
+      r.innerHTML=`<button type="button" class="sub-check">${s.done?"✓":""}</button><span class="sub-txt">${esc(s.title)}</span><button type="button" class="sub-del" aria-label="Törlés">×</button>`;
+      r.querySelector(".sub-check").onclick=()=>{subs[i].done=!subs[i].done;renderSubs();};
+      r.querySelector(".sub-del").onclick=()=>{subs.splice(i,1);renderSubs();};
+      c.appendChild(r);
+    });
+  }
+  function addSub(){const inp=document.getElementById("tkSubInput");const v=inp.value.trim();if(!v)return;subs.push({title:v,done:false});inp.value="";renderSubs();inp.focus();}
+  renderSubs();
   m.querySelectorAll("#tkCat button").forEach(b=>b.onclick=()=>{selKind=b.dataset.k;m.querySelectorAll("#tkCat button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  m.querySelectorAll("#tkPrio button").forEach(b=>b.onclick=()=>{selPrio=b.dataset.p;m.querySelectorAll("#tkPrio button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
   m.querySelectorAll("#tkDur button").forEach(b=>b.onclick=()=>{selDur=+b.dataset.d;m.querySelectorAll("#tkDur button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  document.getElementById("tkSubAdd").onclick=addSub;
+  document.getElementById("tkSubInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addSub();}});
   document.getElementById("tkTimed").onchange=(e)=>{document.getElementById("tkTimeWrap").style.display=e.target.checked?"":"none";};
   document.getElementById("mClose").onclick=closeModal;
   document.getElementById("tkSave").onclick=()=>{
@@ -1127,7 +1243,8 @@ function showTaskModal(t){
     if(timed&&!due) due=currentDayKey();
     upsertTask({id:t.id||uid(),projectId:document.getElementById("tkProj").value,title,
       done:document.getElementById("tkDone").checked,due,
-      time: timed?parseTimeInput(document.getElementById("tkTime").value):null, dur:selDur, kind:selKind, notes:t.notes||""});
+      time: timed?parseTimeInput(document.getElementById("tkTime").value):null, dur:selDur, kind:selKind,
+      priority:selPrio, subtasks:subs, notes:t.notes||""});
     setLastKind(selKind); closeModal(); render();
   };
   const del=document.getElementById("tkDelete"); if(del) del.onclick=()=>{deleteTask(t.id);closeModal();render();};

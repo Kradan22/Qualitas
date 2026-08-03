@@ -872,7 +872,16 @@ document.getElementById("saveConnect").onclick=()=>{
 document.getElementById("connectBtn").onclick=connect;
 document.getElementById("refreshBtn").onclick=()=>refresh(true);
 document.getElementById("signoutBtn").onclick=signOut;
-document.getElementById("spChip").onclick=()=>{ if(SP.lastError) alert("SharePoint hiba részletei:\n\n"+SP.lastError); };
+document.getElementById("spChip").onclick=()=>{
+  if(!SP.lastError) return;
+  if(/403|denied|scope|consent|AADSTS|401|InvalidAuthenticationToken/i.test(SP.lastError) && pca && account){
+    if(confirm("A SharePoint-hozzáféréshez frissíteni kell a bejelentkezést (Sites jogosultsággal). Most bejelentkezel? Az oldal átirányít a Microsofthoz, majd visszatér.")){
+      try{ pca.acquireTokenRedirect({scopes:SCOPES,account}); }catch(e){ alert(e.message||e); }
+    }
+  } else {
+    alert("SharePoint hiba részletei:\n\n"+SP.lastError);
+  }
+};
 
 /* ============================================================
    RENDERELÉS

@@ -710,6 +710,8 @@ function startAutoRefresh(){ if(refreshTimer)clearInterval(refreshTimer); refres
 function setSpStatus(cls,text,meta){
   const el=document.getElementById("spChip"); if(!el)return;
   el.hidden=false; el.className="spchip"+(cls?" "+cls:""); el.textContent=text; el.title=meta||"";
+  el.style.cursor = cls==="err" ? "pointer" : "default";
+  if(cls==="err") SP.lastError=(text?text+"\n\n":"")+(meta||"(nincs további részlet)");
 }
 async function graph(method,path,body){
   const token=await getToken(["Sites.ReadWrite.All"]);
@@ -870,6 +872,7 @@ document.getElementById("saveConnect").onclick=()=>{
 document.getElementById("connectBtn").onclick=connect;
 document.getElementById("refreshBtn").onclick=()=>refresh(true);
 document.getElementById("signoutBtn").onclick=signOut;
+document.getElementById("spChip").onclick=()=>{ if(SP.lastError) alert("SharePoint hiba részletei:\n\n"+SP.lastError); };
 
 /* ============================================================
    RENDERELÉS

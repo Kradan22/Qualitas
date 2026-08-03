@@ -635,10 +635,13 @@ async function connect(){
     updateSyncButtons();
   }
 }
-async function getToken(scopes,force){
+async function getToken(scopes,force,noRedirect){
   const req={scopes:scopes||["Calendars.Read"],account,forceRefresh:!!force};
   try{ const r=await pca.acquireTokenSilent(req); return r.accessToken; }
-  catch(e){ setStatus("loading","Átirányítás a bejelentkezéshez…",""); pca.acquireTokenRedirect({scopes:req.scopes,account}); throw new Error("redirect_in_progress"); }
+  catch(e){
+    if(noRedirect) throw new Error("Token-megújítás sikertelen ["+(e.errorCode||e.name||"?")+"]: "+((e.errorMessage||e.message||"")+"").slice(0,160));
+    setStatus("loading","Átirányítás a bejelentkezéshez…",""); pca.acquireTokenRedirect({scopes:req.scopes,account}); throw new Error("redirect_in_progress");
+  }
 }
 function isoUTC(date){return new Date(date).toISOString();}
 async function fetchCalendar(){
@@ -714,7 +717,7 @@ function setSpStatus(cls,text,meta){
   if(cls==="err") SP.lastError=(text?text+"\n\n":"")+(meta||"(nincs további részlet)");
 }
 async function graph(method,path,body,force){
-  const token=await getToken(["Sites.ReadWrite.All"],force);
+  const token=await getToken(["Sites.ReadWrite.All"],force,true);
   const url=path.indexOf("http")===0?path:("https://graph.microsoft.com/v1.0"+path);
   const res=await fetch(url,{method,headers:Object.assign({Authorization:"Bearer "+token},body?{"Content-Type":"application/json"}:{}),body:body?JSON.stringify(body):undefined});
   if((res.status===403||res.status===401) && !force) return graph(method,path,body,true); // elavult token → friss token, újra
@@ -789,9 +792,11 @@ async function spDeleteProject(id){ if(!SP.siteId)return; const ex=SP.map.proj[i
 async function spConnect(){
   const cfg=loadCfg(); if(!cfg||!cfg.siteUrl) return;
   try{
-    setSpStatus("loading","SharePoint: kapcsolódás…");
+    setSpStatus("loading","SharePoint: webhely feloldása…");
     SP.siteId=await spResolveSite(cfg.siteUrl);
+    setSpStatus("loading","SharePoint: listák ellenőrzése…");
     await spEnsureLists();
+    setSpStatus("loading","SharePoint: letöltés…");
     const localProjects=loadProjects().slice(), localTasks=loadTasks().slice();
     await spPull();
     const seededKey="planner-sp-seeded:"+SP.siteId;

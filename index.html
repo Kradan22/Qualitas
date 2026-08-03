@@ -732,6 +732,15 @@ async function spResolveSite(siteUrl){
   if(!site||!site.id) throw new Error("A webhely nem található ezen a címen.");
   return site.id;
 }
+async function spEnsureColumns(listId,defs){
+  let have=new Set();
+  try{ const cols=await graph("GET","/sites/"+SP.siteId+"/lists/"+listId+"/columns?$select=name&$top=200"); have=new Set((cols.value||[]).map(c=>c.name)); }catch(e){}
+  for(const def of defs){
+    if(have.has(def.name)) continue;
+    try{ await graph("POST","/sites/"+SP.siteId+"/lists/"+listId+"/columns",{name:def.name,text:def.multi?{allowMultipleLines:true}:{}}); }
+    catch(e){ console.warn("oszlop létrehozás sikertelen:",def.name,(e.message||"")); }
+  }
+}
 async function spEnsureLists(){
   const d=await graph("GET","/sites/"+SP.siteId+"/lists?$select=id,displayName&$top=200");
   let proj=(d.value||[]).find(l=>l.displayName==="Projektek");
@@ -739,6 +748,9 @@ async function spEnsureLists(){
   if(!proj) proj=await graph("POST","/sites/"+SP.siteId+"/lists",{displayName:"Projektek",list:{template:"genericList"},columns:[{name:"AppId",text:{}},{name:"Data",text:{allowMultipleLines:true}}]});
   if(!task) task=await graph("POST","/sites/"+SP.siteId+"/lists",{displayName:"Feladatok",list:{template:"genericList"},columns:[{name:"AppId",text:{}},{name:"ProjectId",text:{}},{name:"Data",text:{allowMultipleLines:true}}]});
   SP.lists.projekt=proj.id; SP.lists.feladat=task.id;
+  // meglévő (akár kézzel készített) listákon pótoljuk a hiányzó oszlopokat
+  await spEnsureColumns(proj.id,[{name:"AppId"},{name:"Data",multi:true}]);
+  await spEnsureColumns(task.id,[{name:"AppId"},{name:"ProjectId"},{name:"Data",multi:true}]);
 }
 async function spPull(){
   const pj=await graphAll(spListPath("projekt")+"/items?expand=fields&$top=200");

@@ -1,0 +1,1474 @@
+<title>Tervező · Napi és heti nézet</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#eaeef3; --surface:#ffffff; --surface-2:#f5f7fb; --surface-3:#eef2f8;
+    --ink:#1a2231; --ink-soft:#3a4557; --muted:#68738a; --faint:#98a3b6;
+    --line:#e0e6ef; --line-strong:#cfd7e4;
+    --accent:#3a55d9; --accent-ink:#2a3fb0; --accent-soft:#eaeeff;
+    --meet:#3a55d9; --meet-bg:#eef1ff; --meet-line:#c6d0ff;
+    --task:#0d8a72; --task-bg:#e6f6f1; --task-line:#b6e6da;
+    --social:#b0328c; --social-bg:#fceaf6; --social-line:#f2c9e7;
+    --tent:#b5771a; --tent-bg:#fdf3e2; --tent-line:#f0dcae;
+    --now:#e5484d; --ok:#0d8a72; --err:#e5484d;
+    /* tervezési kategóriák (téma-független accentek, a háttér color-mix-szel igazodik) */
+    --cat-task:#8a94a6; --cat-dev:#7b61ff; --cat-ops:#2596d1; --cat-ana:#10b981; --cat-sal:#f0942b; --cat-acc:#e2549c;
+    --shadow:0 1px 2px rgba(24,39,75,.06), 0 8px 24px -12px rgba(24,39,75,.18);
+    --radius:14px;
+    --hour:72px; --gutter:56px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0f141d; --surface:#182131; --surface-2:#141c29; --surface-3:#1e293a;
+      --ink:#eef2f8; --ink-soft:#c4cede; --muted:#8b97ac; --faint:#5f6b80;
+      --line:#273246; --line-strong:#33405a;
+      --accent:#7d90ff; --accent-ink:#9aa9ff; --accent-soft:#20294a;
+      --meet:#7d90ff; --meet-bg:#1c2543; --meet-line:#324068;
+      --task:#39c6a6; --task-bg:#122a27; --task-line:#255049;
+      --social:#e77ac6; --social-bg:#2c1930; --social-line:#4d2b4a;
+      --tent:#e0a94b; --tent-bg:#2a2213; --tent-line:#4d4020;
+      --now:#ff6b6f; --ok:#39c6a6; --err:#ff6b6f;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eaeef3; --surface:#ffffff; --surface-2:#f5f7fb; --surface-3:#eef2f8;
+    --ink:#1a2231; --ink-soft:#3a4557; --muted:#68738a; --faint:#98a3b6;
+    --line:#e0e6ef; --line-strong:#cfd7e4;
+    --accent:#3a55d9; --accent-ink:#2a3fb0; --accent-soft:#eaeeff;
+    --meet:#3a55d9; --meet-bg:#eef1ff; --meet-line:#c6d0ff;
+    --task:#0d8a72; --task-bg:#e6f6f1; --task-line:#b6e6da;
+    --social:#b0328c; --social-bg:#fceaf6; --social-line:#f2c9e7;
+    --tent:#b5771a; --tent-bg:#fdf3e2; --tent-line:#f0dcae;
+    --now:#e5484d; --ok:#0d8a72; --err:#e5484d;
+    --shadow:0 1px 2px rgba(24,39,75,.06), 0 8px 24px -12px rgba(24,39,75,.18);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f141d; --surface:#182131; --surface-2:#141c29; --surface-3:#1e293a;
+    --ink:#eef2f8; --ink-soft:#c4cede; --muted:#8b97ac; --faint:#5f6b80;
+    --line:#273246; --line-strong:#33405a;
+    --accent:#7d90ff; --accent-ink:#9aa9ff; --accent-soft:#20294a;
+    --meet:#7d90ff; --meet-bg:#1c2543; --meet-line:#324068;
+    --task:#39c6a6; --task-bg:#122a27; --task-line:#255049;
+    --social:#e77ac6; --social-bg:#2c1930; --social-line:#4d2b4a;
+    --tent:#e0a94b; --tent-bg:#2a2213; --tent-line:#4d4020;
+    --now:#ff6b6f; --ok:#39c6a6; --err:#ff6b6f;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -14px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased; line-height:1.45; font-size:15px;
+  }
+  button{font-family:inherit; cursor:pointer}
+  a{color:var(--accent-ink)}
+
+  .app{max-width:1240px; margin:0 auto; padding:22px 20px 60px}
+
+  /* ---- Header ---- */
+  header.top{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:14px}
+  .brand{display:flex; flex-direction:column; gap:3px}
+  .brand .eyebrow{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600}
+  .brand h1{margin:0; font-size:26px; font-weight:750; letter-spacing:-.02em; text-wrap:balance}
+  .brand .who{font-size:13px; color:var(--muted)}
+  .brand .who b{color:var(--ink-soft); font-weight:600}
+
+  .controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .seg{display:inline-flex; background:var(--surface-3); border:1px solid var(--line); border-radius:11px; padding:3px}
+  .seg button{border:0; background:transparent; color:var(--muted); font-weight:600; font-size:13.5px; padding:7px 15px; border-radius:8px; transition:.15s}
+  .seg button[aria-pressed="true"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow)}
+  .nav{display:inline-flex; align-items:center; gap:4px}
+  .iconbtn{width:38px; height:38px; display:grid; place-items:center; background:var(--surface); border:1px solid var(--line); border-radius:10px; color:var(--ink-soft); font-size:17px; box-shadow:var(--shadow); transition:.15s}
+  .iconbtn:hover{border-color:var(--line-strong); color:var(--ink)}
+  .today-btn{padding:0 16px; height:38px; background:var(--surface); border:1px solid var(--line); border-radius:10px; font-weight:600; font-size:13.5px; color:var(--ink-soft); box-shadow:var(--shadow); transition:.15s}
+  .today-btn:hover{border-color:var(--accent); color:var(--accent-ink)}
+  .theme-btn{width:38px;height:38px;display:grid;place-items:center;background:var(--surface); border:1px solid var(--line);border-radius:10px;font-size:16px;box-shadow:var(--shadow)}
+
+  /* ---- Sync bar ---- */
+  .syncbar{display:flex; align-items:center; gap:12px; margin:0 2px 14px; padding:10px 14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); flex-wrap:wrap}
+  .syncstatus{font-weight:650; font-size:13px; display:inline-flex; align-items:center; gap:8px}
+  .led{width:9px; height:9px; border-radius:50%; background:var(--faint); flex-shrink:0}
+  .syncstatus.live .led{background:var(--ok); box-shadow:0 0 0 3px var(--task-bg)}
+  .syncstatus.err .led{background:var(--err); box-shadow:0 0 0 3px var(--tent-bg)}
+  .syncstatus.loading .led{background:var(--accent); animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .syncmeta{font-size:12px; color:var(--muted)}
+  .spchip{font-size:12px; font-weight:600; color:var(--muted); display:inline-flex; align-items:center; gap:6px}
+  .spchip::before{content:""; width:8px; height:8px; border-radius:50%; background:var(--faint); flex:0 0 auto}
+  .spchip.live::before{background:var(--ok)}
+  .spchip.err::before{background:var(--err)}
+  .spchip.loading::before{background:var(--accent); animation:pulse 1s infinite}
+  .spchip[hidden]{display:none}
+  .syncbtns{margin-left:auto; display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .btn{height:34px; padding:0 14px; border-radius:9px; font-weight:600; font-size:13px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink-soft); display:inline-flex; align-items:center; gap:7px; transition:.15s}
+  .btn:hover{border-color:var(--line-strong); color:var(--ink)}
+  .btn.primary{background:var(--accent); color:#fff; border-color:transparent}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn.gear{width:34px; padding:0; justify-content:center; font-size:15px}
+  .btn[hidden]{display:none}
+  .spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;display:inline-block;animation:rot .7s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+
+  /* ---- Period bar ---- */
+  .periodbar{display:flex; align-items:baseline; gap:12px; margin:4px 2px 14px; flex-wrap:wrap}
+  .periodbar .period{font-size:19px; font-weight:700; letter-spacing:-.01em}
+  .periodbar .sub{font-size:13.5px; color:var(--muted)}
+  .periodbar .count{margin-left:auto; font-size:12.5px; color:var(--muted); display:inline-flex; gap:14px; flex-wrap:wrap}
+  .periodbar .count b{color:var(--ink); font-weight:650}
+  .legend{display:inline-flex; align-items:center; gap:5px}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+
+  /* ---- Layout ---- */
+  .layout{display:grid; grid-template-columns:1fr 320px; gap:18px; align-items:start}
+  @media (max-width:920px){ .layout{grid-template-columns:1fr} }
+  .board{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; position:relative}
+
+  .weekhead{display:grid; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; background:var(--surface)}
+  .weekhead .corner{border-right:1px solid var(--line)}
+  .daycol-h{padding:9px 8px 8px; text-align:center; border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer}
+  .daycol-h:last-child{border-right:0}
+  .daycol-h .dow{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600}
+  .daycol-h .dnum{font-size:17px; font-weight:700; width:32px; height:32px; display:grid; place-items:center; border-radius:50%}
+  .daycol-h.is-today .dnum{background:var(--accent); color:#fff}
+  .daycol-h.is-today .dow{color:var(--accent-ink)}
+  .daycol-h.sel{background:var(--surface-2)}
+  .daycol-h .mini{font-size:10.5px; color:var(--faint); min-height:13px}
+
+  .allday-row{display:grid; border-bottom:1px solid var(--line); background:var(--surface-2)}
+  .allday-row .corner{border-right:1px solid var(--line); font-size:9.5px; color:var(--faint); display:flex; align-items:center; justify-content:flex-end; padding-right:6px; text-transform:uppercase; letter-spacing:.05em}
+  .allday-cell{border-right:1px solid var(--line); padding:4px; min-height:22px; display:flex; flex-direction:column; gap:3px}
+  .allday-cell:last-child{border-right:0}
+  .allday-chip{font-size:10.5px; font-weight:600; padding:2px 6px; border-radius:6px; background:var(--social-bg); color:var(--social); border:1px solid var(--social-line); cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+  .gridwrap{position:relative; overflow-x:auto}
+  .grid{position:relative; display:grid}
+  .timegutter{border-right:1px solid var(--line)}
+  .hourlabel{height:var(--hour); position:relative; padding-right:8px; text-align:right; font-size:11px; color:var(--faint); font-variant-numeric:tabular-nums}
+  .hourlabel span{position:absolute; right:8px; top:-7px}
+  .col{position:relative; border-right:1px solid var(--line)}
+  .col:last-child{border-right:0}
+  .col.today-col{background:linear-gradient(var(--accent-soft),var(--accent-soft)); background-blend-mode:multiply}
+  .hourline{position:absolute; left:0; right:0; height:1px; background:var(--line)}
+  .hourline.half{background:repeating-linear-gradient(90deg,var(--line) 0 6px,transparent 6px 12px); opacity:.6}
+
+  .event{position:absolute; border-radius:8px; padding:5px 8px; overflow:hidden; border:1px solid var(--meet-line); background:var(--meet-bg); color:var(--ink); box-shadow:0 1px 2px rgba(24,39,75,.08); cursor:pointer; transition:transform .1s, box-shadow .1s; border-left:3px solid var(--meet)}
+  .event:hover{transform:translateY(-1px); box-shadow:var(--shadow); z-index:20}
+  .event .ev-t{font-size:12px; font-weight:650; line-height:1.25; overflow:hidden; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:4; line-clamp:4; overflow-wrap:break-word}
+  .event .ev-time{font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; margin-top:1px}
+  .event .ev-loc{font-size:10.5px; color:var(--muted); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .event.cat-task{background:var(--task-bg); border-color:var(--task-line); border-left-color:var(--task)}
+  .event.cat-social{background:var(--social-bg); border-color:var(--social-line); border-left-color:var(--social)}
+  .event.tent{border-style:dashed}
+  .event.compact{padding:2px 7px}
+  .event.compact .ev-time,.event.compact .ev-loc{display:none}
+  .event.compact .ev-t{-webkit-line-clamp:2; line-clamp:2}
+
+  .nowline{position:absolute; left:0; right:0; height:2px; background:var(--now); z-index:15; pointer-events:none}
+  .nowline::before{content:""; position:absolute; left:-4px; top:-3px; width:8px; height:8px; border-radius:50%; background:var(--now)}
+
+  .board-overlay{position:absolute; inset:0; background:color-mix(in srgb,var(--surface) 70%, transparent); display:none; place-items:center; z-index:40}
+  .board-overlay.on{display:grid}
+  .board-overlay .box{display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--muted); background:var(--surface); padding:10px 16px; border-radius:10px; border:1px solid var(--line); box-shadow:var(--shadow)}
+
+  /* ---- Side panel ---- */
+  .side{display:flex; flex-direction:column; gap:16px}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px}
+  .card h2{margin:0 0 2px; font-size:15px; font-weight:700; letter-spacing:-.01em}
+  .card .card-sub{font-size:12.5px; color:var(--muted); margin-bottom:12px}
+
+  .agenda{display:flex; flex-direction:column; gap:2px}
+  .agenda-item{display:flex; gap:11px; padding:9px 6px; border-radius:9px; cursor:pointer; transition:.12s; align-items:flex-start}
+  .agenda-item:hover{background:var(--surface-2)}
+  .agenda-time{font-size:12px; font-variant-numeric:tabular-nums; color:var(--ink-soft); font-weight:600; min-width:42px; padding-top:1px}
+  .agenda-time small{display:block; color:var(--faint); font-weight:500; font-size:10.5px}
+  .agenda-body{flex:1; min-width:0}
+  .agenda-body .a-t{font-size:13px; font-weight:600; line-height:1.3}
+  .agenda-body .a-m{font-size:11.5px; color:var(--muted); margin-top:2px; display:flex; align-items:center; gap:5px; flex-wrap:wrap}
+  .stripe{width:3px; align-self:stretch; border-radius:3px; background:var(--meet); min-height:26px}
+  .stripe.cat-task{background:var(--task)} .stripe.cat-social{background:var(--social)}
+  .empty{color:var(--faint); font-size:13px; text-align:center; padding:22px 0}
+
+  .tag{font-size:10.5px; padding:1px 7px; border-radius:20px; font-weight:600; background:var(--surface-3); color:var(--muted); border:1px solid var(--line)}
+  .tag.tent{background:var(--tent-bg); color:var(--tent); border-color:var(--tent-line)}
+  .tag.link{background:var(--meet-bg); color:var(--meet); border-color:var(--meet-line)}
+
+  .todo-add{display:flex; gap:8px; margin-bottom:12px}
+  .todo-add input{flex:1; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:9px; padding:8px 11px; font-size:13.5px; font-family:inherit}
+  .todo-add input:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent}
+  .todo-add button{background:var(--accent); color:#fff; border:0; border-radius:9px; padding:0 14px; font-weight:600; font-size:18px; line-height:1}
+  .todo-list{display:flex; flex-direction:column; gap:2px}
+  .todo{display:flex; align-items:center; gap:10px; padding:7px 6px; border-radius:9px}
+  .todo:hover{background:var(--surface-2)}
+  .todo:hover .del{opacity:1}
+  .check{width:19px; height:19px; border-radius:6px; border:1.5px solid var(--line-strong); background:var(--surface); flex-shrink:0; display:grid; place-items:center; color:#fff; font-size:12px; transition:.12s}
+  .todo.done .check{background:var(--task); border-color:var(--task)}
+  .todo .txt{flex:1; font-size:13.5px}
+  .todo.done .txt{color:var(--faint); text-decoration:line-through}
+  .todo .del{opacity:0; border:0; background:transparent; color:var(--faint); font-size:16px; padding:2px 6px; border-radius:6px; transition:.12s}
+  .todo .del:hover{color:var(--now); background:var(--surface-3)}
+  .todo .sched{opacity:0; border:1px solid var(--line); background:var(--surface-2); border-radius:7px; font-size:11px; font-weight:600; color:var(--muted); padding:3px 8px; white-space:nowrap; transition:.12s}
+  .todo:hover .sched{opacity:1}
+  .todo .sched.set{opacity:1; color:var(--task); border-color:var(--task-line); background:var(--task-bg)}
+  .todo .sched:hover{border-color:var(--task); color:var(--task)}
+  .todo-empty{color:var(--faint); font-size:12.5px; text-align:center; padding:8px 0 2px; line-height:1.5}
+
+  /* kategória-színek hordozó osztálya (--c) */
+  .k-task{--c:var(--cat-task)} .k-dev{--c:var(--cat-dev)} .k-ops{--c:var(--cat-ops)} .k-ana{--c:var(--cat-ana)} .k-sal{--c:var(--cat-sal)} .k-acc{--c:var(--cat-acc)}
+  /* beütemezett kategória-blokk a rácson */
+  .event.blk{background:color-mix(in srgb,var(--c,var(--cat-task)) 15%,var(--surface)); border:1px solid color-mix(in srgb,var(--c,var(--cat-task)) 34%,var(--surface)); border-left:3px solid var(--c,var(--cat-task)); color:var(--ink)}
+  .event.blk .ev-t{padding-right:16px}
+  .event.blk .tb-check{position:absolute; top:4px; right:5px; width:16px; height:16px; border:1.5px solid var(--c,var(--cat-task)); border-radius:5px; display:grid; place-items:center; font-size:11px; color:#fff; background:var(--surface); line-height:1}
+  .event.blk.done{opacity:.62}
+  .event.blk.done .tb-check{background:var(--c,var(--cat-task))}
+  .event.blk.done .ev-t{text-decoration:line-through}
+  .col{cursor:copy}
+  .col .event{cursor:pointer}
+
+  /* havi nézet */
+  .monthhead{display:grid; grid-template-columns:repeat(7,1fr); border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--surface); z-index:5}
+  .mh-cell{padding:9px 6px; text-align:center; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; border-right:1px solid var(--line)}
+  .mh-cell:last-child{border-right:0}
+  .monthgrid{display:grid; grid-template-columns:repeat(7,1fr)}
+  .mcell{min-height:112px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); padding:5px 5px 7px; display:flex; flex-direction:column; gap:3px; cursor:pointer; overflow:hidden}
+  .mcell:nth-child(7n){border-right:0}
+  .mcell:hover{background:var(--surface-2)}
+  .mcell.other{background:var(--surface-2)}
+  .mcell.other .mnum{color:var(--faint)}
+  .mcell.today .mnum{background:var(--accent); color:#fff}
+  .mcell.sel{box-shadow:inset 0 0 0 2px var(--accent)}
+  .mnum{align-self:flex-start; font-size:12.5px; font-weight:700; min-width:22px; height:22px; display:grid; place-items:center; border-radius:50%}
+  .mchips{display:flex; flex-direction:column; gap:2px; overflow:hidden}
+  .mchip{font-size:10.5px; line-height:1.3; padding:1px 5px; border-radius:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; font-variant-numeric:tabular-nums}
+  .mchip.ev{background:var(--surface-3); color:var(--ink-soft); border-left:3px solid var(--meet)}
+  .mchip.ev.cat-task{border-left-color:var(--task)} .mchip.ev.cat-social{border-left-color:var(--social)}
+  .mchip.mblk{background:color-mix(in srgb,var(--c,var(--cat-task)) 18%,var(--surface)); color:var(--ink); border-left:3px solid var(--c,var(--cat-task))}
+  .mchip.mblk.done{opacity:.55; text-decoration:line-through}
+  .mmore{font-size:10px; color:var(--muted); padding-left:4px; margin-top:1px}
+
+  /* idő-tervező összegzés */
+  .sumhint{font-size:12px; color:var(--muted); margin-bottom:10px}
+  .sumrow{display:flex; align-items:center; gap:9px; padding:4px 0}
+  .sumrow .slab{font-size:12.5px; color:var(--ink-soft); width:112px; display:flex; align-items:center; gap:7px; flex:0 0 auto}
+  .sumrow .sdot{width:10px; height:10px; border-radius:3px; background:var(--c,var(--cat-task)); flex:0 0 auto}
+  .sbar{flex:1; height:8px; background:var(--surface-3); border-radius:6px; overflow:hidden}
+  .sbar>span{display:block; height:100%; background:var(--c,var(--cat-task)); border-radius:6px; transition:width .2s}
+  .sval{font-size:12px; font-weight:650; color:var(--ink); min-width:46px; text-align:right; font-variant-numeric:tabular-nums; flex:0 0 auto}
+  .sumtotal{font-size:12px; color:var(--muted); margin-top:10px; padding-top:9px; border-top:1px solid var(--line); display:flex; justify-content:space-between}
+  .sumtotal b{color:var(--ink)}
+
+  /* kategória chipek a szerkesztőben + listadot */
+  .cat-opts{display:flex; gap:6px; flex-wrap:wrap}
+  .cat-chip{border:1px solid var(--line); background:var(--surface-2); border-radius:20px; padding:6px 11px; font-size:12px; font-weight:600; color:var(--ink-soft); display:inline-flex; align-items:center; gap:6px; font-family:inherit}
+  .cat-chip::before{content:""; width:9px; height:9px; border-radius:3px; background:var(--c,var(--cat-task))}
+  .cat-chip.sel{border-color:var(--c,var(--cat-task)); background:color-mix(in srgb,var(--c,var(--cat-task)) 15%,var(--surface)); color:var(--ink)}
+  .todo .kdot{width:9px; height:9px; border-radius:3px; background:var(--c,var(--cat-task)); flex:0 0 auto}
+
+  /* Feladatok nézet */
+  .tasksview{padding:16px; display:flex; flex-direction:column; gap:14px}
+  .tv-head{display:flex; align-items:center; justify-content:space-between; gap:12px}
+  .tv-title{font-size:16px; font-weight:750; letter-spacing:-.01em}
+  .proj{border:1px solid var(--line); border-radius:12px; overflow:hidden; border-left:4px solid var(--c,var(--cat-task))}
+  .proj-head{display:flex; align-items:center; gap:9px; padding:11px 14px; background:color-mix(in srgb,var(--c,var(--cat-task)) 8%,var(--surface)); flex-wrap:wrap}
+  .proj-dot{width:11px; height:11px; border-radius:3px; background:var(--c,var(--cat-task)); flex:0 0 auto}
+  .proj-name{font-weight:700; font-size:14.5px}
+  .proj-count{font-size:12px; color:var(--muted)}
+  .proj-actions{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
+  .lnk{border:0; background:transparent; color:var(--accent-ink); font-weight:600; font-size:12.5px; padding:2px 4px; cursor:pointer}
+  .lnk.del{color:var(--now)}
+  .proj-tasks{display:flex; flex-direction:column}
+  .proj-empty{padding:12px 14px; color:var(--faint); font-size:13px}
+  .tv-task{display:flex; align-items:center; gap:10px; padding:9px 14px; border-top:1px solid var(--line); cursor:pointer}
+  .tv-task:hover{background:var(--surface-2)}
+  .tv-task .check{width:20px; height:20px; border-radius:6px; border:1.5px solid var(--line-strong); background:var(--surface); flex:0 0 auto; display:grid; place-items:center; color:#fff; font-size:12px; padding:0}
+  .tv-task.done .check{background:var(--task); border-color:var(--task)}
+  .tv-task.done .tv-ttl{color:var(--faint); text-decoration:line-through}
+  .tv-ttl{flex:1; font-size:13.5px; min-width:0; overflow:hidden; text-overflow:ellipsis}
+  .tv-due{flex:0 0 auto}
+  .tv-duechip{font-size:11.5px; font-weight:600; color:var(--ink-soft); background:var(--surface-3); border:1px solid var(--line); border-radius:20px; padding:2px 9px; white-space:nowrap}
+  .tv-duechip small{color:var(--muted); font-weight:500}
+  .tv-nodue{font-size:11.5px; color:var(--faint)}
+  .tv-meta{display:flex; align-items:center; gap:6px; flex:0 0 auto}
+
+  /* prioritás */
+  .prio-chip{border:1px solid var(--line); background:var(--surface-2); border-radius:20px; padding:6px 12px; font-size:12px; font-weight:600; color:var(--ink-soft); font-family:inherit}
+  .prio-chip.sel{color:#fff; border-color:transparent}
+  .prio-chip.prio-high.sel{background:var(--now)}
+  .prio-chip.prio-normal.sel{background:var(--muted)}
+  .prio-chip.prio-low.sel{background:var(--meet)}
+  .prio-badge{font-size:10px; font-weight:700; padding:1px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.03em}
+  .prio-badge.high{background:color-mix(in srgb,var(--now) 16%,var(--surface)); color:var(--now); border:1px solid color-mix(in srgb,var(--now) 34%,var(--surface))}
+  .prio-badge.low{background:var(--surface-3); color:var(--muted); border:1px solid var(--line)}
+  .sub-badge{font-size:11px; color:var(--muted); font-weight:600}
+
+  /* alfeladatok */
+  .subs{display:flex; flex-direction:column; gap:2px; margin-bottom:8px}
+  .sub-empty{font-size:12px; color:var(--faint); padding:2px 0}
+  .sub-row{display:flex; align-items:center; gap:8px; padding:3px 0}
+  .sub-row .sub-check{width:18px; height:18px; border-radius:5px; border:1.5px solid var(--line-strong); background:var(--surface); display:grid; place-items:center; color:#fff; font-size:11px; padding:0; flex:0 0 auto; cursor:pointer}
+  .sub-row.done .sub-check{background:var(--task); border-color:var(--task)}
+  .sub-row.done .sub-txt{color:var(--faint); text-decoration:line-through}
+  .sub-txt{flex:1; font-size:13px; min-width:0}
+  .sub-row .sub-del{border:0; background:transparent; color:var(--faint); font-size:15px; cursor:pointer; padding:0 4px}
+  .sub-add{display:flex; gap:8px}
+  .sub-add input{flex:1; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:9px; padding:7px 10px; font-size:13px; font-family:inherit}
+  .sub-add button{background:var(--accent); color:#fff; border:0; border-radius:9px; padding:0 13px; font-weight:600; font-size:16px}
+
+  /* húzás (drag & drop) */
+  .event.blk,.mchip.mblk{touch-action:none}
+  .col.drop{background:color-mix(in srgb,var(--accent) 12%,var(--surface)) !important}
+  .mcell.drop{box-shadow:inset 0 0 0 2px var(--accent); background:color-mix(in srgb,var(--accent) 10%,var(--surface))}
+  body.dragging{cursor:grabbing; -webkit-user-select:none; user-select:none}
+
+  /* teendő-szerkesztő mező-elemek */
+  .te-day{font-size:12.5px; color:var(--muted); margin:-4px 0 2px}
+  .te-title{width:100%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:9px; padding:9px 11px; font-size:14px; font-family:inherit}
+  .te-time{width:100%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:9px; padding:9px 11px; font-size:14px; font-family:inherit}
+  .te-title:focus,.te-time:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent}
+  .dur-opts{display:flex; gap:6px; flex-wrap:wrap}
+  .dur-opts button{flex:1; min-width:52px; padding:8px 4px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); font-weight:600; font-size:12.5px; color:var(--ink-soft); font-family:inherit}
+  .dur-opts button.sel{background:var(--accent); color:#fff; border-color:transparent}
+  .te-done{display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-soft); margin-top:14px; cursor:pointer}
+  .te-done input{width:17px; height:17px; accent-color:var(--task)}
+
+  /* ---- Modals ---- */
+  .modal-bg{position:fixed; inset:0; background:rgba(15,20,29,.5); backdrop-filter:blur(2px); display:none; place-items:center; z-index:100; padding:20px}
+  .modal-bg.open{display:grid}
+  .modal{background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:0 20px 60px -20px rgba(0,0,0,.5); max-width:460px; width:100%; padding:22px; max-height:88vh; overflow:auto}
+  .modal .m-cat{font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-ink)}
+  .modal h3{margin:6px 0 12px; font-size:19px; letter-spacing:-.01em; text-wrap:balance}
+  .m-row{display:flex; gap:10px; padding:8px 0; border-top:1px solid var(--line); font-size:13.5px; align-items:flex-start}
+  .m-row .m-ico{width:20px; text-align:center; color:var(--muted); flex-shrink:0}
+  .m-row .m-val{flex:1}
+  .m-row .m-val a{word-break:break-all}
+  .m-close{float:right; border:0; background:var(--surface-3); width:30px; height:30px; border-radius:8px; color:var(--muted); font-size:16px}
+  .m-actions{display:flex; gap:9px; margin-top:16px}
+  .m-actions a,.m-actions button{flex:1; text-align:center; text-decoration:none; padding:9px; border-radius:10px; font-weight:600; font-size:13.5px; background:var(--accent); color:#fff; border:0}
+  .m-actions a.ghost,.m-actions button.ghost{background:var(--surface-3); color:var(--ink-soft); border:1px solid var(--line)}
+
+  .field{margin-top:14px}
+  .field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:5px}
+  .field input{width:100%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); border-radius:9px; padding:9px 11px; font-size:13.5px; font-family:inherit}
+  .field input:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent}
+  .field .hint{font-size:11.5px; color:var(--muted); margin-top:5px}
+  .copyrow{display:flex; gap:8px; align-items:center; margin-top:5px}
+  .copyrow code{flex:1; font-size:11.5px; background:var(--surface-3); border:1px solid var(--line); border-radius:8px; padding:8px 10px; word-break:break-all; font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .copyrow button{flex:0 0 auto; height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); font-size:12.5px; font-weight:600; color:var(--ink-soft)}
+  .note{font-size:12px; color:var(--muted); background:var(--surface-2); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:8px; padding:10px 12px; margin-top:14px; line-height:1.5}
+
+  .foot{text-align:center; color:var(--faint); font-size:11.5px; margin-top:26px}
+  .foot a{color:var(--muted)}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">Qualitas · Tervező</span>
+      <h1>Napi &amp; heti tervező</h1>
+      <span class="who" id="whoLabel">Csatlakoztasd az Outlook naptáradat az élő szinkronhoz</span>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Nézet">
+        <button id="viewDay" aria-pressed="false">Nap</button>
+        <button id="viewWeek" aria-pressed="true">Hét</button>
+        <button id="viewMonth" aria-pressed="false">Hónap</button>
+        <button id="viewTasks" aria-pressed="false">Feladatok</button>
+      </div>
+      <div class="nav">
+        <button class="iconbtn" id="prev" aria-label="Előző">‹</button>
+        <button class="today-btn" id="today">Ma</button>
+        <button class="iconbtn" id="next" aria-label="Következő">›</button>
+      </div>
+      <button class="theme-btn" id="themeBtn" aria-label="Téma váltása" title="Világos / sötét">◐</button>
+    </div>
+  </header>
+
+  <div class="syncbar">
+    <span class="syncstatus" id="syncStatus"><span class="led"></span><span id="syncText">Demó adatok</span></span>
+    <span class="syncmeta" id="syncMeta">Beépített pillanatkép · nincs bejelentkezve</span>
+    <span class="spchip" id="spChip" hidden></span>
+    <div class="syncbtns">
+      <button class="btn" id="refreshBtn" hidden>↻ Frissítés</button>
+      <button class="btn primary" id="connectBtn">Csatlakozás az Outlookhoz</button>
+      <button class="btn" id="signoutBtn" hidden>Kilépés</button>
+      <button class="btn gear" id="settingsBtn" title="Beállítások" aria-label="Beállítások">⚙</button>
+    </div>
+  </div>
+
+  <div class="periodbar">
+    <span class="period" id="periodLabel">—</span>
+    <span class="sub" id="periodSub"></span>
+    <span class="count" id="periodCount"></span>
+  </div>
+
+  <div class="layout">
+    <div class="board" id="board">
+      <div class="board-overlay" id="boardOverlay"><div class="box"><span class="spin"></span> Naptár betöltése…</div></div>
+    </div>
+
+    <aside class="side">
+      <div class="card" id="summaryCard">
+        <h2>Idő-tervezés</h2>
+        <div class="sumhint" id="sumHint">Tervezett órák kategóriánként</div>
+        <div id="summaryBody"></div>
+      </div>
+      <div class="card">
+        <h2 id="agendaTitle">Napi program</h2>
+        <div class="card-sub" id="agendaSub"></div>
+        <div class="agenda" id="agenda"></div>
+      </div>
+      <div class="card">
+        <h2>Teendők</h2>
+        <div class="card-sub" id="todoSub">A kijelölt naphoz — böngészőben tárolva</div>
+        <div class="todo-add">
+          <input id="todoInput" type="text" placeholder="Új teendő…" maxlength="120">
+          <button id="todoAdd" aria-label="Hozzáadás">+</button>
+        </div>
+        <div class="todo-list" id="todoList"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="foot" id="foot">Időzóna: Budapest (CEST)</div>
+</div>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+
+<div class="modal-bg" id="settingsBg">
+  <div class="modal" id="settingsModal">
+    <button class="m-close" id="setClose" aria-label="Bezárás">×</button>
+    <div class="m-cat">Élő szinkron</div>
+    <h3>Outlook naptár csatlakoztatása</h3>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 4px">Add meg az Azure (Entra ID) alkalmazásod adatait. A Client ID nem titkos adat; a bejelentkezés a te böngésződben történik, jelszót nem tárolunk.</p>
+    <div class="field">
+      <label for="cidInput">Application (client) ID</label>
+      <input id="cidInput" type="text" placeholder="pl. 11111111-2222-3333-4444-555555555555" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="tenantInput">Directory (tenant) ID vagy tartomány <span style="color:var(--faint);font-weight:400">— nem kötelező</span></label>
+      <input id="tenantInput" type="text" placeholder="common (alap) · vagy qualitassystem.hu · vagy tenant GUID" autocomplete="off" spellcheck="false">
+      <div class="hint">Ha üresen hagyod: <code>common</code>. Céges fiókhoz általában a tenant GUID vagy a domain a legjobb.</div>
+    </div>
+    <div class="field">
+      <label for="siteInput">SharePoint webhely URL <span style="color:var(--faint);font-weight:400">— közös feladat-szinkronhoz, nem kötelező</span></label>
+      <input id="siteInput" type="text" placeholder="https://ceged.sharepoint.com/sites/Tervezo" autocomplete="off" spellcheck="false">
+      <div class="hint">Ha megadod, a projektek/feladatok a céges SharePointon tárolódnak (a <b>Projektek</b> és <b>Feladatok</b> listákat az app automatikusan létrehozza). Üresen hagyva minden a böngésződben marad.</div>
+    </div>
+    <div class="field">
+      <label>Redirect URI (SPA) — ezt add hozzá az Azure appban</label>
+      <div class="copyrow"><code id="redirectUri">—</code><button id="copyRedirect">Másolás</button></div>
+      <div class="hint">Azure portál → az appod → <b>Authentication</b> → <b>Add a platform</b> → <b>Single-page application</b> → illeszd be ezt az URI-t. A jogosultságoknál kell: <b>Microsoft Graph → Calendars.Read</b> (delegált).</div>
+    </div>
+    <div class="m-actions">
+      <button id="saveConnect" class="primary">Mentés és csatlakozás</button>
+      <button id="setCancel" class="ghost">Mégse</button>
+    </div>
+    <div class="note">Élő szinkron csak HTTPS-en (pl. GitHub Pages) vagy <code>http://localhost</code>-on működik, mert a Microsoft bejelentkezés ehhez a címhez van kötve.</div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Beépített DEMO pillanatkép — csak példa, ha nincs élő kapcsolat.
+   Nem tartalmaz valós személyt vagy találkozót; az élő adat
+   bejelentkezés után a te böngésződbe töltődik. (időpontok UTC-ben)
+   ============================================================ */
+const SNAPSHOT = [
+  {s:"2026-07-13T06:00:00Z",e:"2026-07-13T07:00:00Z",t:"Heti tervezés",org:"én",loc:"Microsoft Teams"},
+  {s:"2026-07-13T11:00:00Z",e:"2026-07-13T12:00:00Z",t:"Projekt egyeztetés",org:"én"},
+  {s:"2026-07-14T07:00:00Z",e:"2026-07-14T08:00:00Z",t:"Vezetői megbeszélés",org:"én",loc:"Microsoft Teams"},
+  {s:"2026-07-14T07:00:00Z",e:"2026-07-14T08:00:00Z",t:"Ügyfélbemutató",org:"én",loc:"Google Meet"},
+  {s:"2026-07-14T09:00:00Z",e:"2026-07-14T10:00:00Z",t:"Egyeztetés (előzetes)",org:"én",tent:true},
+  {s:"2026-07-15T08:00:00Z",e:"2026-07-15T09:00:00Z",t:"Partneri egyeztetés",org:"én",loc:"Google Meet"},
+  {s:"2026-07-15T12:00:00Z",e:"2026-07-15T13:00:00Z",t:"Pénzügyi áttekintés",org:"én"},
+  {s:"2026-07-16T08:00:00Z",e:"2026-07-16T09:30:00Z",t:"Terméktréning",org:"én",loc:"Google Meet"},
+  {s:"2026-07-17T09:00:00Z",e:"2026-07-17T12:00:00Z",t:"Helyszíni szemle",org:"én",loc:"Helyszín"},
+  {s:"2026-07-20T07:00:00Z",e:"2026-07-20T07:30:00Z",t:"Heti indító",org:"én",loc:"Microsoft Teams"},
+  {s:"2026-07-22T07:00:00Z",e:"2026-07-22T08:00:00Z",t:"Kolléga születésnapja",org:"én",social:true},
+  {s:"2026-07-23T06:00:00Z",e:"2026-07-23T08:00:00Z",t:"Üzleti reggeli",org:"én"}
+];
+
+/* ---------- Idő segédfüggvények (Europe/Budapest) ---------- */
+const TZ="Europe/Budapest";
+const fmtParts=new Intl.DateTimeFormat("en-GB",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false});
+function local(date){const p={};for(const x of fmtParts.formatToParts(date))p[x.type]=x.value;const h=+p.hour%24;return {y:+p.year,mo:+p.month,d:+p.day,h,mi:+p.minute,minutes:h*60+(+p.minute)};}
+const HU_DOW=["Vasárnap","Hétfő","Kedd","Szerda","Csütörtök","Péntek","Szombat"];
+const HU_DOW_S=["V","H","K","Sze","Cs","P","Szo"];
+const HU_MON=["január","február","március","április","május","június","július","augusztus","szeptember","október","november","december"];
+const pad=n=>String(n).padStart(2,"0");
+const hm=m=>pad(Math.floor(m/60))+":"+pad(m%60);
+function keyOf(date){const l=local(date);return `${l.y}-${pad(l.mo)}-${pad(l.d)}`}
+function dowOf(date){const l=local(date);return new Date(Date.UTC(l.y,l.mo-1,l.d)).getUTCDay();}
+const SOCIAL_RE=/szülinap|születésnap|évfordul|jubileum|éve a cégnél|felköszönt|névnap/i;
+
+/* ---------- Adat-ingesztálás ---------- */
+let EVENTS=[], BY_DAY={};
+function ingest(raw){
+  EVENTS = raw.map((r,i)=>{
+    const sd=new Date(r.s), ed=new Date(r.e);
+    const ls=local(sd), le=local(ed);
+    let cat="meet";
+    if(r.social) cat="social";
+    else if(/^\(Dani/i.test(r.t)) cat="task";
+    else if(SOCIAL_RE.test(r.t)) cat="social";
+    let endMin=le.minutes; if(le.minutes<=ls.minutes && !r.allday) endMin=ls.minutes+30;
+    return {id:i,...r,cat,sd,ed,dayKey:keyOf(sd),startMin:ls.minutes,endMin};
+  });
+  BY_DAY={};
+  for(const ev of EVENTS){ (BY_DAY[ev.dayKey]=BY_DAY[ev.dayKey]||[]).push(ev); }
+  for(const k in BY_DAY) BY_DAY[k].sort((a,b)=>a.startMin-b.startMin||a.endMin-b.endMin);
+}
+const CAT_LABEL={meet:"Megbeszélés",task:"Saját feladat",social:"Esemény"};
+
+/* Tervezési kategóriák (időblokkok) */
+const BLOCK_CATS={
+  dev:{label:"Fejlesztés"},
+  ops:{label:"Operatív vezetés"},
+  ana:{label:"Elemzés"},
+  sal:{label:"Sales"},
+  acc:{label:"Könyvelés"},
+  task:{label:"Egyéb / teendő"}
+};
+const BLOCK_ORDER=["dev","ops","ana","sal","acc","task"];
+function getLastKind(){const k=localStorage.getItem("planner-lastkind");return BLOCK_CATS[k]?k:"dev";}
+function setLastKind(k){try{localStorage.setItem("planner-lastkind",k)}catch(e){}}
+function hoursFmt(mins){ if(!mins) return "0"; const h=mins/60; const s=(Math.round(h*10)/10).toString().replace(".",","); return s+" ó"; }
+const PRIOS={high:{label:"Magas"},normal:{label:"Közepes"},low:{label:"Alacsony"}};
+function prioNum(p){return p==="high"?0:(p==="low"?2:1);}
+
+/* ---------- Állapot ---------- */
+let GRID_START=6, GRID_END=20; const HOURH=72;
+/* a rács órasávja igazodjon a látható időszak legkorábbi/legkésőbbi tételéhez */
+function computeRange(days){
+  let minS=7*60, maxE=19*60;
+  days.forEach(dd=>{
+    const k=keyOf(dd);
+    (BY_DAY[k]||[]).filter(e=>!e.allday).forEach(e=>{minS=Math.min(minS,e.startMin);maxE=Math.max(maxE,e.endMin);});
+    scheduledTodos(k).forEach(t=>{minS=Math.min(minS,t.startMin);maxE=Math.max(maxE,t.endMin);});
+  });
+  GRID_START=Math.max(0,Math.floor(minS/60));
+  GRID_END=Math.min(24,Math.ceil(maxE/60));
+  if(GRID_END-GRID_START<6) GRID_END=Math.min(24,GRID_START+6);
+}
+let view="week", cursor=new Date(), selectedKey=keyOf(new Date());
+
+/* ---------- Dátumműveletek ---------- */
+function localMidnightUTC(y,mo,d){return new Date(Date.UTC(y,mo-1,d,0,0,0));}
+function shiftDays(date,n){const l=local(date);return new Date(Date.UTC(l.y,l.mo-1,l.d+n,12,0,0));}
+function mondayOf(date){const dow=dowOf(date);const diff=(dow+6)%7;return shiftDays(date,-diff);}
+function weekDays(date){const m=mondayOf(date);return Array.from({length:7},(_,i)=>shiftDays(m,i));}
+function shiftMonth(date,n){const l=local(date);return new Date(Date.UTC(l.y,l.mo-1+n,Math.min(l.d,28),12));}
+function monthDays(date){
+  const l=local(date);
+  const first=new Date(Date.UTC(l.y,l.mo-1,1,12));
+  const gridStart=mondayOf(first);
+  const last=new Date(Date.UTC(l.y,l.mo,0,12)); // hónap utolsó napja
+  const span=Math.round((localMidnightUTC(local(last).y,local(last).mo,local(last).d)-localMidnightUTC(local(gridStart).y,local(gridStart).mo,local(gridStart).d))/864e5)+1;
+  const weeks=Math.ceil(span/7);
+  return Array.from({length:weeks*7},(_,i)=>shiftDays(gridStart,i));
+}
+
+/* ============================================================
+   MICROSOFT GRAPH ÉLŐ SZINKRON (MSAL)
+   ============================================================ */
+const CFG_KEY="planner-msal-cfg";
+const SCOPES=["Calendars.Read","Sites.ReadWrite.All"];
+let pca=null, account=null, live=false, refreshTimer=null;
+let SP={connected:false, siteId:null, lists:{projekt:null,feladat:null}, map:{proj:{},task:{}}};
+
+/* MSAL könyvtár betöltése több CDN-es tartalékkal */
+const MSAL_CDNS=[
+  "https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.4/lib/msal-browser.min.js",
+  "https://unpkg.com/@azure/msal-browser@2.38.4/lib/msal-browser.min.js",
+  "https://alcdn.msauth.net/browser/2.38.4/js/msal-browser.min.js"
+];
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.async=true;s.onload=()=>res();s.onerror=()=>rej(new Error("nem tölthető: "+src));document.head.appendChild(s);});}
+let msalLoading=null;
+function ensureMsal(){
+  if(typeof msal!=="undefined") return Promise.resolve(true);
+  if(!msalLoading){
+    msalLoading=(async()=>{
+      for(const u of MSAL_CDNS){ try{ await loadScript(u); if(typeof msal!=="undefined") return true; }catch(e){ console.warn(e.message); } }
+      return typeof msal!=="undefined";
+    })();
+  }
+  return msalLoading;
+}
+function loadCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY)||"null")}catch(e){return null}}
+function saveCfg(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
+function redirectUri(){return location.origin+location.pathname;}
+
+function initMsal(cfg){
+  pca=new msal.PublicClientApplication({
+    auth:{clientId:cfg.clientId, authority:"https://login.microsoftonline.com/"+(cfg.tenant||"common"), redirectUri:redirectUri()},
+    cache:{cacheLocation:"localStorage"}
+  });
+}
+async function ensurePca(){
+  const cfg=loadCfg();
+  if(!cfg||!cfg.clientId) return null;
+  if(!(await ensureMsal())) return null;
+  if(!pca) initMsal(cfg);
+  return pca;
+}
+async function connect(){
+  const cfg=loadCfg();
+  if(!cfg||!cfg.clientId){ openSettings(); return; }
+  setStatus("loading","Bejelentkező könyvtár betöltése…","");
+  if(!(await ensureMsal())){
+    setStatus("err","A bejelentkező könyvtár nem tölthető be","A hálózat vagy tűzfal blokkolhatja a CDN-t – próbáld másik hálózaton");
+    updateSyncButtons(); return;
+  }
+  try{
+    await ensurePca();
+    setStatus("loading","Átirányítás a Microsoft bejelentkezéshez…","Egy pillanat…");
+    // Átirányításos (redirect) folyamat – nincs felugró ablak. Az oldal
+    // átnavigál a Microsoft bejelentkezéshez, majd visszatér ide; a
+    // folytatás a boot()-ban, a handleRedirectPromise() eredménye alapján.
+    await pca.loginRedirect({scopes:SCOPES,prompt:"select_account"});
+  }catch(e){
+    console.error(e);
+    live=false;
+    setStatus("err","Bejelentkezés sikertelen", e.errorMessage||e.message||"Ismeretlen hiba");
+    updateSyncButtons();
+  }
+}
+async function getToken(scopes,force,noRedirect){
+  const req={scopes:scopes||["Calendars.Read"],account,forceRefresh:!!force};
+  try{ const r=await pca.acquireTokenSilent(req); return r.accessToken; }
+  catch(e){
+    if(noRedirect) throw new Error("Token-megújítás sikertelen ["+(e.errorCode||e.name||"?")+"]: "+((e.errorMessage||e.message||"")+"").slice(0,160));
+    setStatus("loading","Átirányítás a bejelentkezéshez…",""); pca.acquireTokenRedirect({scopes:req.scopes,account}); throw new Error("redirect_in_progress");
+  }
+}
+function isoUTC(date){return new Date(date).toISOString();}
+async function fetchCalendar(){
+  const token=await getToken();
+  // széles ablak: -31 .. +150 nap, hogy a lapozás azonnali legyen
+  const now=new Date();
+  const start=isoUTC(new Date(now.getTime()-31*864e5));
+  const end=isoUTC(new Date(now.getTime()+150*864e5));
+  let url="https://graph.microsoft.com/v1.0/me/calendarView"
+    +"?startDateTime="+encodeURIComponent(start)
+    +"&endDateTime="+encodeURIComponent(end)
+    +"&$select=subject,start,end,location,isAllDay,showAs,isCancelled,organizer,attendees,onlineMeeting,isOnlineMeeting,webLink"
+    +"&$orderby=start/dateTime&$top=100";
+  const out=[];
+  const me=(account&&account.username||"").toLowerCase();
+  while(url){
+    const res=await fetch(url,{headers:{Authorization:"Bearer "+token}});
+    if(!res.ok){ throw new Error("Graph "+res.status+": "+(await res.text()).slice(0,200)); }
+    const data=await res.json();
+    for(const ev of (data.value||[])){
+      if(ev.isCancelled) continue;
+      const orgEmail=(ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.address||"").toLowerCase();
+      const org = orgEmail===me ? "én" : (ev.organizer&&ev.organizer.emailAddress&&ev.organizer.emailAddress.name)||"—";
+      const att=(ev.attendees||[]).map(a=>a.emailAddress&&(a.emailAddress.name||a.emailAddress.address)).filter(Boolean)
+                 .map(n=> (n||"").toLowerCase()===me ? "én" : n);
+      const link=(ev.onlineMeeting&&ev.onlineMeeting.joinUrl)||null;
+      let loc=(ev.location&&ev.location.displayName)||"";
+      if(!loc&&(ev.isOnlineMeeting||link)) loc="Online értekezlet";
+      out.push({
+        s:ev.start.dateTime.endsWith("Z")?ev.start.dateTime:ev.start.dateTime+"Z",
+        e:ev.end.dateTime.endsWith("Z")?ev.end.dateTime:ev.end.dateTime+"Z",
+        t:ev.subject||"(nincs tárgy)",
+        org, att:att.length?att:undefined, loc:loc||undefined, link:link||undefined,
+        web:ev.webLink||undefined, tent:ev.showAs==="tentative"||undefined, allday:ev.isAllDay||undefined
+      });
+    }
+    url=data["@odata.nextLink"]||null;
+  }
+  return out;
+}
+async function refresh(showOverlay){
+  if(!live) return;
+  try{
+    if(showOverlay) boardOverlay(true);
+    setStatus("loading","Frissítés…","");
+    const raw=await fetchCalendar();
+    ingest(raw);
+    live=true;
+    const stamp=local(new Date());
+    setStatus("live","Élő · Outlook", account.username);
+    document.getElementById("whoLabel").innerHTML="Naptár: <b>"+esc(account.name||account.username)+"</b> · élő szinkron";
+    document.getElementById("foot").textContent="Élőben szinkronizálva "+account.username+" fiókból · utolsó frissítés "+hm(stamp.minutes)+" · időzóna Budapest";
+    render();
+    if(loadCfg()&&loadCfg().siteUrl){ try{ await spSync(); }catch(spErr){ console.error(spErr); setSpStatus("err","SharePoint hiba",(spErr.message||"").slice(0,140)); } }
+  }catch(e){
+    if((e&&e.message)==="redirect_in_progress") return; // az oldal éppen átirányít
+    console.error(e);
+    setStatus("err","Szinkron hiba", (e.message||"").slice(0,120));
+  }finally{
+    boardOverlay(false);
+    updateSyncButtons();
+  }
+}
+function startAutoRefresh(){ if(refreshTimer)clearInterval(refreshTimer); refreshTimer=setInterval(()=>refresh(false),5*60*1000); }
+
+/* ============================================================
+   SHAREPOINT SZINKRON (projektek & feladatok — Microsoft Graph)
+   ============================================================ */
+function setSpStatus(cls,text,meta){
+  const el=document.getElementById("spChip"); if(!el)return;
+  el.hidden=false; el.className="spchip"+(cls?" "+cls:""); el.textContent=text; el.title=meta||"";
+  el.style.cursor = cls==="err" ? "pointer" : "default";
+  if(cls==="err") SP.lastError=(text?text+"\n\n":"")+(meta||"(nincs további részlet)");
+}
+async function graph(method,path,body,force){
+  const token=await getToken(["Sites.ReadWrite.All"],force,true);
+  const url=path.indexOf("http")===0?path:("https://graph.microsoft.com/v1.0"+path);
+  const res=await fetch(url,{method,headers:Object.assign({Authorization:"Bearer "+token},body?{"Content-Type":"application/json"}:{}),body:body?JSON.stringify(body):undefined});
+  if((res.status===403||res.status===401) && !force) return graph(method,path,body,true); // elavult token → friss token, újra
+  if(res.status===204) return null;
+  const txt=await res.text(); let data=null; try{data=txt?JSON.parse(txt):null;}catch(e){}
+  if(!res.ok) throw new Error("Graph "+res.status+": "+(((data&&data.error&&data.error.message)||txt||"")+"").slice(0,180));
+  return data;
+}
+async function graphAll(path){ let url=path,out=[]; while(url){ const d=await graph("GET",url); (d&&d.value||[]).forEach(x=>out.push(x)); url=(d&&d["@odata.nextLink"])||null; } return out; }
+function spListPath(which){ return "/sites/"+SP.siteId+"/lists/"+(which==="feladat"?SP.lists.feladat:SP.lists.projekt); }
+function spTaskFields(t){ return {Title:(t.title||"Feladat").slice(0,255), AppId:t.id, ProjectId:t.projectId||"", Data:JSON.stringify({projectId:t.projectId,done:!!t.done,due:t.due||null,time:(typeof t.time==="number"?t.time:null),dur:t.dur||60,kind:t.kind||"task",priority:t.priority||"normal",subtasks:t.subtasks||[],notes:t.notes||""})}; }
+function spProjectFields(p){ return {Title:(p.name||"Projekt").slice(0,255), AppId:p.id, Data:JSON.stringify({kind:p.kind||"task"})}; }
+
+async function spResolveSite(siteUrl){
+  const u=new URL(siteUrl); const host=u.hostname; const path=u.pathname.replace(/\/+$/,"");
+  const rel=path?(host+":"+path):host;
+  const site=await graph("GET","/sites/"+rel);
+  if(!site||!site.id) throw new Error("A webhely nem található ezen a címen.");
+  return site.id;
+}
+async function spEnsureColumns(listId,defs){
+  let have=new Set();
+  try{ const cols=await graph("GET","/sites/"+SP.siteId+"/lists/"+listId+"/columns?$select=name&$top=200"); have=new Set((cols.value||[]).map(c=>c.name)); }catch(e){}
+  for(const def of defs){
+    if(have.has(def.name)) continue;
+    try{ await graph("POST","/sites/"+SP.siteId+"/lists/"+listId+"/columns",{name:def.name,text:def.multi?{allowMultipleLines:true}:{}}); }
+    catch(e){ console.warn("oszlop létrehozás sikertelen:",def.name,(e.message||"")); }
+  }
+}
+async function spEnsureLists(){
+  const d=await graph("GET","/sites/"+SP.siteId+"/lists?$select=id,displayName&$top=200");
+  let proj=(d.value||[]).find(l=>l.displayName==="Projektek");
+  let task=(d.value||[]).find(l=>l.displayName==="Feladatok");
+  if(!proj) proj=await graph("POST","/sites/"+SP.siteId+"/lists",{displayName:"Projektek",list:{template:"genericList"},columns:[{name:"AppId",text:{}},{name:"Data",text:{allowMultipleLines:true}}]});
+  if(!task) task=await graph("POST","/sites/"+SP.siteId+"/lists",{displayName:"Feladatok",list:{template:"genericList"},columns:[{name:"AppId",text:{}},{name:"ProjectId",text:{}},{name:"Data",text:{allowMultipleLines:true}}]});
+  SP.lists.projekt=proj.id; SP.lists.feladat=task.id;
+  // meglévő (akár kézzel készített) listákon pótoljuk a hiányzó oszlopokat
+  await spEnsureColumns(proj.id,[{name:"AppId"},{name:"Data",multi:true}]);
+  await spEnsureColumns(task.id,[{name:"AppId"},{name:"ProjectId"},{name:"Data",multi:true}]);
+}
+async function spPull(){
+  const pj=await graphAll(spListPath("projekt")+"/items?expand=fields&$top=200");
+  const projects=[]; SP.map.proj={};
+  pj.forEach(it=>{ const f=it.fields||{}; let d={}; try{d=JSON.parse(f.Data||"{}");}catch(e){} const id=f.AppId||("sp"+it.id); projects.push({id,name:f.Title||"Projekt",kind:BLOCK_CATS[d.kind]?d.kind:"task"}); SP.map.proj[id]=it.id; });
+  saveProjects(projects);
+  const firstProj=projects[0]&&projects[0].id||"";
+  const tk=await graphAll(spListPath("feladat")+"/items?expand=fields&$top=200");
+  const tasks=[]; SP.map.task={};
+  tk.forEach(it=>{ const f=it.fields||{}; let d={}; try{d=JSON.parse(f.Data||"{}");}catch(e){} const id=f.AppId||("sp"+it.id);
+    tasks.push({id,projectId:f.ProjectId||d.projectId||firstProj,title:f.Title||"Feladat",done:!!d.done,due:d.due||null,
+      time:(typeof d.time==="number"?d.time:null),dur:d.dur||60,kind:BLOCK_CATS[d.kind]?d.kind:"task",
+      priority:PRIOS[d.priority]?d.priority:"normal",subtasks:Array.isArray(d.subtasks)?d.subtasks:[],notes:d.notes||""});
+    SP.map.task[id]=it.id; });
+  saveTasks(tasks);
+}
+async function spWriteTask(t){
+  if(!SP.siteId) return;
+  try{ const ex=SP.map.task[t.id];
+    if(ex) await graph("PATCH",spListPath("feladat")+"/items/"+ex+"/fields",spTaskFields(t));
+    else { const r=await graph("POST",spListPath("feladat")+"/items",{fields:spTaskFields(t)}); if(r)SP.map.task[t.id]=r.id; }
+  }catch(e){ console.error(e); setSpStatus("err","SharePoint mentés hiba",(e.message||"").slice(0,120)); }
+}
+async function spDeleteTask(id){ if(!SP.siteId)return; const ex=SP.map.task[id]; if(!ex)return; try{ await graph("DELETE",spListPath("feladat")+"/items/"+ex); delete SP.map.task[id]; }catch(e){ console.error(e); setSpStatus("err","SharePoint törlés hiba",(e.message||"").slice(0,120)); } }
+async function spWriteProject(p){
+  if(!SP.siteId) return;
+  try{ const ex=SP.map.proj[p.id];
+    if(ex) await graph("PATCH",spListPath("projekt")+"/items/"+ex+"/fields",spProjectFields(p));
+    else { const r=await graph("POST",spListPath("projekt")+"/items",{fields:spProjectFields(p)}); if(r)SP.map.proj[p.id]=r.id; }
+  }catch(e){ console.error(e); setSpStatus("err","SharePoint mentés hiba",(e.message||"").slice(0,120)); }
+}
+async function spDeleteProject(id){ if(!SP.siteId)return; const ex=SP.map.proj[id]; if(!ex)return; try{ await graph("DELETE",spListPath("projekt")+"/items/"+ex); delete SP.map.proj[id]; }catch(e){ console.error(e); } }
+async function spConnect(){
+  const cfg=loadCfg(); if(!cfg||!cfg.siteUrl) return;
+  try{
+    setSpStatus("loading","SharePoint: webhely feloldása…");
+    SP.siteId=await spResolveSite(cfg.siteUrl);
+    setSpStatus("loading","SharePoint: listák ellenőrzése…");
+    await spEnsureLists();
+    setSpStatus("loading","SharePoint: letöltés…");
+    const localProjects=loadProjects().slice(), localTasks=loadTasks().slice();
+    await spPull();
+    const seededKey="planner-sp-seeded:"+SP.siteId;
+    const spEmpty=(loadProjects().length===0 && loadTasks().length===0);
+    if(spEmpty && !localStorage.getItem(seededKey) && (localTasks.length>0 || localProjects.length>0)){
+      setSpStatus("loading","SharePoint: kezdeti feltöltés…");
+      saveProjects(localProjects.length?localProjects:ensureSeed()); saveTasks(localTasks);
+      for(const p of loadProjects()) await spWriteProject(p);
+      for(const t of loadTasks()) await spWriteTask(t);
+    } else if(loadProjects().length===0){
+      const seed=ensureSeed(); for(const p of seed) await spWriteProject(p);
+    }
+    localStorage.setItem(seededKey,"1");
+    SP.connected=true;
+    setSpStatus("live","Feladatok: SharePoint szinkron", cfg.siteUrl);
+    render();
+  }catch(e){
+    console.error(e); SP.connected=false;
+    setSpStatus("err","SharePoint hiba", (e.message||"").slice(0,160));
+  }
+}
+async function spSync(){
+  const cfg=loadCfg(); if(!cfg||!cfg.siteUrl) return;
+  if(!SP.connected) await spConnect();
+  else { try{ await spPull(); render(); setSpStatus("live","Feladatok: SharePoint szinkron"); }catch(e){ console.error(e); setSpStatus("err","SharePoint hiba",(e.message||"").slice(0,140)); } }
+}
+function signOut(){
+  live=false; if(refreshTimer)clearInterval(refreshTimer);
+  try{ if(pca&&account) pca.logoutPopup({account}).catch(()=>{}); }catch(e){}
+  account=null;
+  ingest(SNAPSHOT);
+  setStatus("","Demó adatok","Beépített pillanatkép · nincs bejelentkezve");
+  document.getElementById("whoLabel").textContent="Csatlakoztasd az Outlook naptáradat az élő szinkronhoz";
+  document.getElementById("foot").textContent="Időzóna: Budapest (CEST)";
+  updateSyncButtons(); render();
+}
+
+/* ---------- Sync UI ---------- */
+function setStatus(cls,text,meta){
+  const s=document.getElementById("syncStatus");
+  s.className="syncstatus"+(cls?" "+cls:"");
+  document.getElementById("syncText").textContent=text;
+  document.getElementById("syncMeta").textContent=meta||"";
+}
+function updateSyncButtons(){
+  document.getElementById("connectBtn").hidden=live;
+  document.getElementById("refreshBtn").hidden=!live;
+  document.getElementById("signoutBtn").hidden=!live;
+}
+function boardOverlay(on){ document.getElementById("boardOverlay").classList.toggle("on",!!on); }
+
+/* Settings modal */
+function openSettings(){
+  const cfg=loadCfg()||{};
+  document.getElementById("cidInput").value=cfg.clientId||"";
+  document.getElementById("tenantInput").value=cfg.tenant||"";
+  document.getElementById("siteInput").value=cfg.siteUrl||"";
+  document.getElementById("redirectUri").textContent=redirectUri();
+  document.getElementById("settingsBg").classList.add("open");
+}
+function closeSettings(){document.getElementById("settingsBg").classList.remove("open");}
+document.getElementById("settingsBtn").onclick=openSettings;
+document.getElementById("setClose").onclick=closeSettings;
+document.getElementById("setCancel").onclick=closeSettings;
+document.getElementById("settingsBg").onclick=e=>{if(e.target.id==="settingsBg")closeSettings();};
+document.getElementById("copyRedirect").onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(redirectUri());document.getElementById("copyRedirect").textContent="Másolva ✓";setTimeout(()=>document.getElementById("copyRedirect").textContent="Másolás",1500);};
+document.getElementById("saveConnect").onclick=()=>{
+  const clientId=document.getElementById("cidInput").value.trim();
+  const tenant=document.getElementById("tenantInput").value.trim();
+  const siteUrl=document.getElementById("siteInput").value.trim();
+  if(!clientId){document.getElementById("cidInput").focus();return;}
+  const prev=loadCfg()||{};
+  saveCfg({clientId,tenant,siteUrl});
+  closeSettings();
+  if(account&&pca&&prev.clientId===clientId&&(prev.tenant||"")===(tenant||"")){
+    SP.connected=false; SP.siteId=null; refresh(true); // csak a feladat-szinkront (SharePoint) frissítjük
+  }else{ pca=null; connect(); }
+};
+document.getElementById("connectBtn").onclick=connect;
+document.getElementById("refreshBtn").onclick=()=>refresh(true);
+document.getElementById("signoutBtn").onclick=signOut;
+document.getElementById("spChip").onclick=()=>{
+  if(!SP.lastError) return;
+  if(/403|denied|scope|consent|AADSTS|401|InvalidAuthenticationToken/i.test(SP.lastError) && pca && account){
+    if(confirm("A SharePoint-hozzáféréshez frissíteni kell a bejelentkezést (Sites jogosultsággal). Most bejelentkezel? Az oldal átirányít a Microsofthoz, majd visszatér.")){
+      try{ pca.acquireTokenRedirect({scopes:SCOPES,account}); }catch(e){ alert(e.message||e); }
+    }
+  } else {
+    alert("SharePoint hiba részletei:\n\n"+SP.lastError);
+  }
+};
+
+/* ============================================================
+   RENDERELÉS
+   ============================================================ */
+const board=document.getElementById("board");
+
+/* ---------- Húzás: feladat áthelyezése másik napra/időpontra (egér + érintő) ---------- */
+function dropTarget(x,y,mode){
+  const node=document.elementFromPoint(x,y); if(!node) return null;
+  if(mode==="grid"){
+    const col=node.closest(".col"); if(!col||!col.dataset.day) return null;
+    const yy=y-col.getBoundingClientRect().top;
+    let mins=GRID_START*60+Math.round((yy/HOURH*60)/15)*15;
+    mins=Math.max(GRID_START*60,Math.min(GRID_END*60-15,mins));
+    return {el:col,day:col.dataset.day,time:mins};
+  }
+  const cell=node.closest(".mcell"); if(!cell||!cell.dataset.day) return null;
+  return {el:cell,day:cell.dataset.day,time:null};
+}
+function attachTaskDrag(el,taskId,mode){
+  el.addEventListener("pointerdown",(e)=>{
+    if(e.button&&e.button!==0) return;
+    if(e.target.closest(".tb-check")) return; // a pipa saját kezelést kap
+    const sx=e.clientX, sy=e.clientY; let moved=false, ghost=null;
+    try{el.setPointerCapture(e.pointerId);}catch(_){}
+    const clearDrop=()=>document.querySelectorAll(".col.drop,.mcell.drop").forEach(c=>c.classList.remove("drop"));
+    const move=(ev)=>{
+      if(!moved && Math.hypot(ev.clientX-sx,ev.clientY-sy)<6) return;
+      moved=true; document.body.classList.add("dragging");
+      if(!ghost){ghost=el.cloneNode(true);Object.assign(ghost.style,{position:"fixed",pointerEvents:"none",opacity:".92",zIndex:9999,width:el.offsetWidth+"px",margin:"0",left:"0",top:"0",boxShadow:"0 8px 24px rgba(0,0,0,.25)"});document.body.appendChild(ghost);el.style.opacity=".3";}
+      ghost.style.transform=`translate(${ev.clientX-24}px,${ev.clientY-12}px)`;
+      clearDrop(); const tgt=dropTarget(ev.clientX,ev.clientY,mode); if(tgt&&tgt.el) tgt.el.classList.add("drop");
+    };
+    const up=(ev)=>{
+      el.removeEventListener("pointermove",move); el.removeEventListener("pointerup",up); el.removeEventListener("pointercancel",up);
+      document.body.classList.remove("dragging"); clearDrop();
+      if(ghost) ghost.remove(); el.style.opacity="";
+      if(moved){
+        const tgt=dropTarget(ev.clientX,ev.clientY,mode);
+        if(tgt){ const t=taskById(taskId); if(t){ const upd={...t,due:tgt.day}; if(mode==="grid"&&tgt.time!=null) upd.time=tgt.time; upsertTask(upd); render(); } }
+      }else{
+        editTask(taskId);
+      }
+    };
+    el.addEventListener("pointermove",move); el.addEventListener("pointerup",up); el.addEventListener("pointercancel",up);
+  });
+}
+function periodEventCounts(days){
+  let meet=0,task=0,social=0;
+  for(const dd of days){for(const ev of (BY_DAY[keyOf(dd)]||[])){if(ev.cat==="task")task++;else if(ev.cat==="social")social++;else meet++;}}
+  return {meet,task,social,total:meet+task+social};
+}
+function render(){
+  document.getElementById("viewDay").setAttribute("aria-pressed",view==="day");
+  document.getElementById("viewWeek").setAttribute("aria-pressed",view==="week");
+  document.getElementById("viewMonth").setAttribute("aria-pressed",view==="month");
+  document.getElementById("viewTasks").setAttribute("aria-pressed",view==="tasks");
+  if(view==="tasks"){
+    document.getElementById("periodLabel").textContent="Projektek & feladatok";
+    document.getElementById("periodSub").textContent="dátumból naptár-bejegyzés lesz";
+    const all=loadTasks(), open=all.filter(t=>!t.done).length;
+    document.getElementById("periodCount").innerHTML=`<span><b>${open}</b> nyitott feladat</span><span>${all.length} összesen · ${loadProjects().length} projekt</span>`;
+    buildTasksView();
+    renderSummary(weekDays(cursor)); renderAgenda(); renderTodos();
+    return;
+  }
+  const days = view==="month" ? monthDays(cursor) : (view==="week" ? weekDays(cursor) : [cursor]);
+  const pl=document.getElementById("periodLabel"), ps=document.getElementById("periodSub");
+  if(view==="month"){
+    const l=local(cursor);
+    pl.textContent=`${l.y}. ${HU_MON[l.mo-1]}`;
+    ps.textContent = (l.y===local(new Date()).y && l.mo===local(new Date()).mo) ? "Aktuális hónap" : "";
+  }else if(view==="week"){
+    const a=local(days[0]), b=local(days[6]);
+    const range = a.mo===b.mo ? `${HU_MON[a.mo-1]} ${a.d}–${b.d}.` : `${HU_MON[a.mo-1]} ${a.d}. – ${HU_MON[b.mo-1]} ${b.d}.`;
+    pl.textContent=`${a.y}. ${range}`; ps.textContent=weekBadge(days[0]);
+  }else{
+    const l=local(cursor);
+    pl.textContent=`${l.y}. ${HU_MON[l.mo-1]} ${l.d}. — ${HU_DOW[dowOf(cursor)]}`;
+    ps.textContent = keyOf(cursor)===keyOf(new Date()) ? "Ma" : relDay(cursor);
+  }
+  const c=periodEventCounts(days);
+  document.getElementById("periodCount").innerHTML=
+    `<span><b>${c.total}</b> bejegyzés</span>`+
+    `<span class="legend"><span class="dot" style="background:var(--meet)"></span> ${c.meet} megbeszélés</span>`+
+    `<span class="legend"><span class="dot" style="background:var(--task)"></span> ${c.task} feladat</span>`+
+    (c.social?`<span class="legend"><span class="dot" style="background:var(--social)"></span> ${c.social} esemény</span>`:"");
+  if(view==="month") buildMonth(days); else buildBoard(days);
+  renderSummary(days); renderAgenda(); renderTodos();
+}
+
+/* ---------- Havi nézet ---------- */
+function buildMonth(days){
+  const overlay=document.getElementById("boardOverlay");
+  board.innerHTML=""; board.appendChild(overlay);
+  const todayKey=keyOf(new Date()), curMonth=local(cursor).mo;
+  const head=document.createElement("div"); head.className="monthhead";
+  ["Hétfő","Kedd","Szerda","Csüt.","Péntek","Szo.","Vas."].forEach(d=>{const c=document.createElement("div");c.className="mh-cell";c.textContent=d;head.appendChild(c);});
+  board.appendChild(head);
+  const gm=document.createElement("div"); gm.className="monthgrid";
+  days.forEach(dd=>{
+    const k=keyOf(dd), dl=local(dd);
+    const cell=document.createElement("div");
+    cell.className="mcell"+(dl.mo!==curMonth?" other":"")+(k===todayKey?" today":"")+(k===selectedKey?" sel":"");
+    cell.dataset.day=k;
+    const items=[];
+    (BY_DAY[k]||[]).forEach(e=>items.push({s:e.allday?-1:e.startMin,ev:e}));
+    scheduledTodos(k).forEach(b=>items.push({s:b.startMin,blk:b}));
+    dueTasks(k).forEach(d=>items.push({s:1e9,due:d}));
+    items.sort((a,b)=>a.s-b.s);
+    const shown=items.slice(0,4);
+    cell.innerHTML=`<div class="mnum">${dl.d}</div>`;
+    const chipsWrap=document.createElement("div"); chipsWrap.className="mchips";
+    shown.forEach(it=>{
+      const c=document.createElement("div");
+      if(it.ev){
+        c.className="mchip ev cat-"+it.ev.cat;
+        c.textContent=(it.ev.allday?"":hm(it.ev.startMin)+" ")+it.ev.t;
+        c.onclick=(e)=>{e.stopPropagation();openModal(it.ev);};
+      }else{
+        const task=it.blk||it.due; const kind=BLOCK_CATS[task.kind]?task.kind:"task";
+        c.className="mchip mblk k-"+kind+(task.done?" done":"");
+        c.textContent=it.blk?(hm(it.blk.startMin)+" "+it.blk.text):("⏳ "+it.due.title);
+        c.onclick=(e)=>{e.stopPropagation();};
+        attachTaskDrag(c, it.blk?it.blk.taskId:it.due.id, "month");
+      }
+      chipsWrap.appendChild(c);
+    });
+    if(items.length>4){const more=document.createElement("div");more.className="mmore";more.textContent="+"+(items.length-4)+" további";chipsWrap.appendChild(more);}
+    cell.appendChild(chipsWrap);
+    cell.onclick=()=>{ selectedKey=k; cursor=new Date(Date.UTC(dl.y,dl.mo-1,dl.d,12)); view="day"; render(); };
+    gm.appendChild(cell);
+  });
+  board.appendChild(gm);
+}
+
+/* ---------- Idő-tervező összegzés ---------- */
+function renderSummary(days){
+  const set=new Set(days.map(keyOf));
+  const sums={}; BLOCK_ORDER.forEach(k=>sums[k]=0); let total=0;
+  loadTasks().forEach(t=>{ if(typeof t.time==="number" && t.due && set.has(t.due)){ const kind=BLOCK_CATS[t.kind]?t.kind:"task"; const dur=t.dur||60; sums[kind]+=dur; total+=dur; } });
+  const scope = view==="month"?"ebben a hónapban":(view==="week"?"ezen a héten":"ma");
+  document.getElementById("sumHint").textContent = total? `Tervezett órák kategóriánként — ${scope}` : `Még nincs beütemezett időblokk ${scope}.`;
+  const max=Math.max(60,...BLOCK_ORDER.map(k=>sums[k]));
+  const body=document.getElementById("summaryBody");
+  body.innerHTML = BLOCK_ORDER.filter(k=>k!=="task"||sums.task>0).map(k=>
+    `<div class="sumrow k-${k}"><div class="slab"><span class="sdot"></span>${BLOCK_CATS[k].label}</div>`+
+    `<div class="sbar"><span style="width:${Math.round(sums[k]/max*100)}%"></span></div>`+
+    `<div class="sval">${hoursFmt(sums[k])}</div></div>`
+  ).join("") + `<div class="sumtotal"><span>Összes tervezett idő</span><b>${hoursFmt(total)}</b></div>`;
+}
+function weekBadge(monday){
+  const l=local(monday); const d=new Date(Date.UTC(l.y,l.mo-1,l.d));
+  const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3);
+  const firstThu=new Date(Date.UTC(d.getUTCFullYear(),0,4));
+  const wk=1+Math.round(((d-firstThu)/864e5-3+((firstThu.getUTCDay()+6)%7))/7);
+  return `${wk}. hét`;
+}
+function relDay(date){
+  const t=new Date();
+  const diff=Math.round((localMidnightUTC(local(date).y,local(date).mo,local(date).d)-localMidnightUTC(local(t).y,local(t).mo,local(t).d))/864e5);
+  if(diff===0)return "Ma"; if(diff===1)return "Holnap"; if(diff===-1)return "Tegnap";
+  return diff>0?`${diff} nap múlva`:`${-diff} napja`;
+}
+function buildBoard(days){
+  const todayKey=keyOf(new Date()), cols=days.length;
+  computeRange(days);
+  const overlay=document.getElementById("boardOverlay");
+  board.innerHTML=""; board.appendChild(overlay);
+
+  const head=document.createElement("div"); head.className="weekhead";
+  head.style.gridTemplateColumns=`var(--gutter) repeat(${cols},1fr)`;
+  head.innerHTML=`<div class="corner"></div>`;
+  days.forEach(dd=>{
+    const k=keyOf(dd), l=local(dd), evs=BY_DAY[k]||[];
+    const h=document.createElement("div");
+    h.className="daycol-h"+(k===todayKey?" is-today":"")+(k===selectedKey&&view==="week"?" sel":"");
+    h.innerHTML=`<span class="dow">${HU_DOW_S[dowOf(dd)]}</span><span class="dnum">${l.d}</span><span class="mini">${evs.length?evs.length+" tétel":""}</span>`;
+    h.onclick=()=>{selectedKey=k; if(view==="week"){renderAgenda();renderTodos();highlightCol(k);}};
+    head.appendChild(h);
+  });
+  board.appendChild(head);
+
+  // egész napos sáv, ha van
+  const hasAllday=days.some(dd=>(BY_DAY[keyOf(dd)]||[]).some(e=>e.allday));
+  if(hasAllday){
+    const ar=document.createElement("div"); ar.className="allday-row";
+    ar.style.gridTemplateColumns=`var(--gutter) repeat(${cols},1fr)`;
+    ar.innerHTML=`<div class="corner">egész<br>nap</div>`;
+    days.forEach(dd=>{
+      const cell=document.createElement("div"); cell.className="allday-cell";
+      (BY_DAY[keyOf(dd)]||[]).filter(e=>e.allday).forEach(ev=>{
+        const chip=document.createElement("div"); chip.className="allday-chip"; chip.textContent=ev.t;
+        chip.onclick=()=>openModal(ev); cell.appendChild(chip);
+      });
+      ar.appendChild(cell);
+    });
+    board.appendChild(ar);
+  }
+
+  const wrap=document.createElement("div"); wrap.className="gridwrap";
+  const grid=document.createElement("div"); grid.className="grid";
+  grid.style.gridTemplateColumns=`var(--gutter) repeat(${cols},1fr)`;
+  const gut=document.createElement("div"); gut.className="timegutter";
+  for(let h=GRID_START;h<GRID_END;h++){const hl=document.createElement("div"); hl.className="hourlabel"; hl.innerHTML=`<span>${pad(h)}:00</span>`; gut.appendChild(hl);}
+  grid.appendChild(gut);
+  const totalH=(GRID_END-GRID_START)*HOURH;
+  days.forEach(dd=>{
+    const k=keyOf(dd);
+    const col=document.createElement("div"); col.className="col"+(k===todayKey?" today-col":"");
+    col.dataset.day=k; col.style.height=totalH+"px";
+    for(let h=GRID_START;h<=GRID_END;h++){
+      const line=document.createElement("div"); line.className="hourline"; line.style.top=((h-GRID_START)*HOURH)+"px"; col.appendChild(line);
+      if(h<GRID_END){const half=document.createElement("div"); half.className="hourline half"; half.style.top=((h-GRID_START)*HOURH+HOURH/2)+"px"; col.appendChild(half);}
+    }
+    const dayItems=(BY_DAY[k]||[]).filter(e=>!e.allday).concat(scheduledTodos(k))
+                    .sort((a,b)=>a.startMin-b.startMin||a.endMin-b.endMin);
+    layoutDay(dayItems).forEach(pos=>{
+      const ev=pos.ev;
+      const top=Math.max(0,(ev.startMin-GRID_START*60)/60*HOURH);
+      const hgt=Math.max(20,(ev.endMin-ev.startMin)/60*HOURH-3);
+      const el=document.createElement("div");
+      el.style.top=top+"px"; el.style.height=hgt+"px";
+      el.style.left=`calc(${(pos.col/pos.lanes)*100}% + 3px)`;
+      el.style.width=`calc(${(1/pos.lanes)*100}% - 6px)`;
+      if(ev.isTodo){
+        el.className="event blk k-"+(ev.kind||"task")+(ev.done?" done":"")+(hgt<38?" compact":"");
+        el.innerHTML=`<div class="tb-check">${ev.done?"✓":""}</div><div class="ev-t">${esc(ev.text)}</div><div class="ev-time">${hm(ev.startMin)}–${hm(ev.endMin)}</div>`;
+        el.querySelector(".tb-check").onclick=(e)=>{e.stopPropagation();toggleTaskDone(ev.taskId);};
+        el.onclick=(e)=>{e.stopPropagation();}; // kattintást/húzást a pointer-kezelő intézi
+        attachTaskDrag(el,ev.taskId,"grid");
+      }else{
+        el.className="event cat-"+ev.cat+(ev.tent?" tent":"")+(hgt<40?" compact":"");
+        el.innerHTML=`<div class="ev-t">${esc(ev.t)}</div><div class="ev-time">${hm(ev.startMin)}–${hm(ev.endMin)}</div>`+(ev.loc?`<div class="ev-loc">${esc(ev.loc)}</div>`:"");
+        el.onclick=(e)=>{e.stopPropagation();openModal(ev);};
+      }
+      el.title=(ev.isTodo?ev.text:ev.t)+" · "+hm(ev.startMin)+"–"+hm(ev.endMin);
+      col.appendChild(el);
+    });
+    // üres helyre kattintás → új teendő beütemezése arra az időpontra
+    col.addEventListener("click",(e)=>{
+      const y=e.clientY-col.getBoundingClientRect().top;
+      let mins=GRID_START*60+Math.round((y/HOURH*60)/15)*15;
+      mins=Math.max(GRID_START*60,Math.min(GRID_END*60-30,mins));
+      newTask({due:k,time:mins});
+    });
+    if(k===todayKey){
+      const now=local(new Date());
+      if(now.minutes>=GRID_START*60&&now.minutes<=GRID_END*60){
+        const nl=document.createElement("div"); nl.className="nowline"; nl.style.top=((now.minutes-GRID_START*60)/60*HOURH)+"px"; col.appendChild(nl);
+      }
+    }
+    grid.appendChild(col);
+  });
+  wrap.appendChild(grid); board.appendChild(wrap);
+}
+function highlightCol(k){
+  const heads=document.querySelectorAll(".daycol-h");
+  const days = view==="week" ? weekDays(cursor) : [cursor];
+  days.forEach((dd,i)=>{heads[i]&&heads[i].classList.toggle("sel",keyOf(dd)===k);});
+}
+function layoutDay(evs){
+  const res=[]; let i=0;
+  while(i<evs.length){
+    let cluster=[evs[i]]; let maxEnd=evs[i].endMin; let j=i+1;
+    while(j<evs.length&&evs[j].startMin<maxEnd){cluster.push(evs[j]);maxEnd=Math.max(maxEnd,evs[j].endMin);j++;}
+    const lanes=[];
+    cluster.forEach(ev=>{let placed=false;for(let l=0;l<lanes.length;l++){if(ev.startMin>=lanes[l]){lanes[l]=ev.endMin;ev._col=l;placed=true;break;}}if(!placed){ev._col=lanes.length;lanes.push(ev.endMin);}});
+    const n=lanes.length; cluster.forEach(ev=>res.push({ev,col:ev._col,lanes:n})); i=j;
+  }
+  return res;
+}
+function renderAgenda(){
+  const key = view==="day" ? keyOf(cursor) : selectedKey;
+  const [y,mo,d]=key.split("-").map(Number);
+  const date=new Date(Date.UTC(y,mo-1,d,12));
+  document.getElementById("agendaTitle").textContent = view==="day" ? "Napi program" : "Kijelölt nap";
+  document.getElementById("agendaSub").textContent=`${HU_DOW[dowOf(date)]} · ${mo}. ${d}. · ${relDay(date)}`;
+  const box=document.getElementById("agenda");
+  const evs=BY_DAY[key]||[]; const tds=scheduledTodos(key); const dts=dueTasks(key);
+  if(!evs.length && !tds.length && !dts.length){box.innerHTML=`<div class="empty">Nincs bejegyzés erre a napra 🌿</div>`;return;}
+  const entries=evs.map(ev=>({s:ev.allday?-1:ev.startMin,ev}))
+    .concat(tds.map(td=>({s:td.startMin,td})))
+    .concat(dts.map(dt=>({s:1e9,due:dt})))
+    .sort((a,b)=>a.s-b.s);
+  box.innerHTML="";
+  entries.forEach(en=>{
+    const it=document.createElement("div"); it.className="agenda-item";
+    if(en.td){
+      const td=en.td;
+      it.innerHTML=`<div class="stripe k-${td.kind}" style="background:var(--c)"></div>`+
+        `<div class="agenda-time">${hm(td.startMin)}<small>${hm(td.endMin)}</small></div>`+
+        `<div class="agenda-body"><div class="a-t"${td.done?' style="text-decoration:line-through;color:var(--faint)"':""}>${td.done?"✓ ":""}${esc(td.text)}</div>`+
+        `<div class="a-m"><span class="tag k-${td.kind}" style="background:color-mix(in srgb,var(--c) 15%,var(--surface));color:var(--c);border-color:color-mix(in srgb,var(--c) 30%,var(--surface))">${BLOCK_CATS[td.kind].label}</span></div></div>`;
+      it.onclick=()=>editTask(td.taskId);
+    }else if(en.due){
+      const dt=en.due; const kind=BLOCK_CATS[dt.kind]?dt.kind:"task";
+      it.className="agenda-item k-"+kind;
+      it.innerHTML=`<div class="stripe" style="background:var(--c)"></div>`+
+        `<div class="agenda-time" style="color:var(--muted)">—<small>határidő</small></div>`+
+        `<div class="agenda-body"><div class="a-t"${dt.done?' style="text-decoration:line-through;color:var(--faint)"':""}>${dt.done?"✓ ":""}${esc(dt.title)}</div>`+
+        `<div class="a-m"><span class="tag k-${kind}" style="background:color-mix(in srgb,var(--c) 15%,var(--surface));color:var(--c);border-color:color-mix(in srgb,var(--c) 30%,var(--surface))">${BLOCK_CATS[kind].label} · határidő</span></div></div>`;
+      it.onclick=()=>editTask(dt.id);
+    }else{
+      const ev=en.ev;
+      it.innerHTML=`<div class="stripe cat-${ev.cat}"></div>`+
+        `<div class="agenda-time">${ev.allday?"egész":hm(ev.startMin)}<small>${ev.allday?"nap":hm(ev.endMin)}</small></div>`+
+        `<div class="agenda-body"><div class="a-t">${esc(ev.t)}</div><div class="a-m">`+
+          (ev.loc?`<span class="tag${ev.link?" link":""}">${ev.link?"🔗 ":"📍 "}${esc(ev.loc)}</span>`:"")+
+          (ev.tent?`<span class="tag tent">bizonytalan</span>`:"")+
+          (ev.org&&ev.org!=="én"?`<span>${esc(ev.org)}</span>`:"")+
+        `</div></div>`;
+      it.onclick=()=>openModal(ev);
+    }
+    box.appendChild(it);
+  });
+}
+
+/* ============================================================
+   PROJEKTEK & FELADATOK (localStorage — később SharePoint-ra cserélhető)
+   ============================================================ */
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+function currentDayKey(){return view==="day"?keyOf(cursor):selectedKey;}
+function loadProjects(){try{return JSON.parse(localStorage.getItem("planner-projects")||"[]")}catch(e){return[]}}
+function saveProjects(a){try{localStorage.setItem("planner-projects",JSON.stringify(a))}catch(e){}}
+let TASK_CACHE=null;
+function loadTasks(){if(!TASK_CACHE){try{TASK_CACHE=JSON.parse(localStorage.getItem("planner-tasks")||"[]")}catch(e){TASK_CACHE=[]}}return TASK_CACHE;}
+function saveTasks(a){TASK_CACHE=a;try{localStorage.setItem("planner-tasks",JSON.stringify(a))}catch(e){}}
+function taskById(id){return loadTasks().find(t=>t.id===id);}
+function upsertTask(t){const a=loadTasks().slice();const i=a.findIndex(x=>x.id===t.id);if(i<0)a.push(t);else a[i]=t;saveTasks(a); if(SP.connected) spWriteTask(t);}
+function deleteTask(id){saveTasks(loadTasks().filter(t=>t.id!==id)); if(SP.connected) spDeleteTask(id);}
+function toggleTaskDone(id){const t=taskById(id);if(t){upsertTask({...t,done:!t.done});render();}}
+function ensureSeed(){let ps=loadProjects();if(!ps.length){ps=[{id:uid(),name:"Általános",kind:"task"}];saveProjects(ps);}return ps;}
+function defaultProjectId(){return ensureSeed()[0].id;}
+function migrateTodos(){
+  if(localStorage.getItem("planner-migrated-v1"))return;
+  ensureSeed(); const def=defaultProjectId(); const tasks=loadTasks().slice();
+  const keys=[]; for(let i=0;i<localStorage.length;i++){const kk=localStorage.key(i); if(kk&&kk.indexOf("planner-todos:")===0)keys.push(kk);}
+  keys.forEach(kk=>{const day=kk.slice(14); let arr=[]; try{arr=JSON.parse(localStorage.getItem(kk)||"[]")}catch(e){}
+    arr.forEach(it=>tasks.push({id:uid(),projectId:def,title:it.text||"Feladat",done:!!it.done,due:day,
+      time:typeof it.time==="number"?it.time:null,dur:it.dur||60,kind:BLOCK_CATS[it.kind]?it.kind:"task",notes:""}));
+  });
+  saveTasks(tasks); localStorage.setItem("planner-migrated-v1","1");
+}
+/* naptár-blokkok: adott napra időzített feladatok / határidős (idő nélküli) feladatok */
+function scheduledTodos(k){
+  return loadTasks().filter(t=>t.due===k&&typeof t.time==="number")
+    .map(t=>({isTodo:true,taskId:t.id,dayKey:k,text:t.title,done:!!t.done,cat:"todo",
+              kind:BLOCK_CATS[t.kind]?t.kind:"task",startMin:t.time,endMin:t.time+(t.dur||60)}));
+}
+function dueTasks(k){return loadTasks().filter(t=>t.due===k&&typeof t.time!=="number");}
+
+/* Oldalsáv: a kijelölt nap feladatai + gyors hozzáadás */
+function renderTodos(){
+  const key=currentDayKey(); const [y,mo,d]=key.split("-").map(Number);
+  document.getElementById("todoSub").textContent=`${mo}. ${d}. — a nap feladatai`;
+  const list=document.getElementById("todoList");
+  const items=loadTasks().filter(t=>t.due===key).sort((a,b)=>(a.done-b.done)||(((a.time!=null?a.time:1e9))-((b.time!=null?b.time:1e9)))||(prioNum(a.priority)-prioNum(b.priority))||a.title.localeCompare(b.title));
+  if(!items.length){list.innerHTML=`<div class="todo-empty">Nincs feladat erre a napra.<br>Írj be egyet lent, vagy a <b>Feladatok</b> nézetben tedd projekthez.</div>`;return;}
+  list.innerHTML="";
+  items.forEach(t=>{
+    const kind=BLOCK_CATS[t.kind]?t.kind:"task"; const scheduled=typeof t.time==="number";
+    const row=document.createElement("div"); row.className="todo"+(t.done?" done":"");
+    row.innerHTML=`<div class="check">${t.done?"✓":""}</div>`+
+      `<span class="kdot k-${kind}" title="${BLOCK_CATS[kind].label}"></span>`+
+      `<div class="txt">${esc(t.title)}</div>`+
+      `<button class="sched${scheduled?" set":""}" title="Időpont / részletek">${scheduled?"🕘 "+hm(t.time):"🗓 Időzít"}</button>`+
+      `<button class="del" aria-label="Törlés">×</button>`;
+    row.querySelector(".check").onclick=()=>toggleTaskDone(t.id);
+    row.querySelector(".txt").onclick=()=>editTask(t.id);
+    row.querySelector(".sched").onclick=()=>editTask(t.id);
+    row.querySelector(".del").onclick=()=>{deleteTask(t.id);render();};
+    list.appendChild(row);
+  });
+}
+function addTodo(){
+  const inp=document.getElementById("todoInput");const v=inp.value.trim();if(!v)return;
+  upsertTask({id:uid(),projectId:defaultProjectId(),title:v,done:false,due:currentDayKey(),time:null,dur:60,kind:"task",notes:""});
+  inp.value="";render();
+}
+document.getElementById("todoAdd").onclick=addTodo;
+document.getElementById("todoInput").addEventListener("keydown",e=>{if(e.key==="Enter")addTodo();});
+
+/* ---------- Feladatok nézet (projekt-lista) ---------- */
+function buildTasksView(){
+  const overlay=document.getElementById("boardOverlay");
+  board.innerHTML=""; board.appendChild(overlay);
+  const wrap=document.createElement("div"); wrap.className="tasksview";
+  const projects=ensureSeed(); const tasks=loadTasks();
+  const hd=document.createElement("div"); hd.className="tv-head";
+  hd.innerHTML=`<div class="tv-title">Projektek &amp; feladatok</div><button class="btn primary" id="tvNewProj">+ Új projekt</button>`;
+  hd.querySelector("#tvNewProj").onclick=addProject;
+  wrap.appendChild(hd);
+  projects.forEach(p=>{
+    const pt=tasks.filter(t=>t.projectId===p.id);
+    const openN=pt.filter(t=>!t.done).length;
+    const card=document.createElement("div"); card.className="proj k-"+(p.kind||"task");
+    const head=document.createElement("div"); head.className="proj-head";
+    head.innerHTML=`<span class="proj-dot"></span><span class="proj-name">${esc(p.name)}</span>`+
+      `<span class="proj-count">${openN} nyitott · ${pt.length} összesen</span>`+
+      `<span class="proj-actions"><button class="lnk" data-a="add">+ feladat</button><button class="lnk" data-a="edit">átnevez</button>${projects.length>1?'<button class="lnk del" data-a="del">törlés</button>':""}</span>`;
+    head.querySelector('[data-a="add"]').onclick=()=>newTask({projectId:p.id,kind:p.kind});
+    head.querySelector('[data-a="edit"]').onclick=()=>renameProject(p.id);
+    const delb=head.querySelector('[data-a="del"]'); if(delb) delb.onclick=()=>removeProject(p.id);
+    card.appendChild(head);
+    const listEl=document.createElement("div"); listEl.className="proj-tasks";
+    const sorted=pt.slice().sort((a,b)=>(a.done-b.done)||(prioNum(a.priority)-prioNum(b.priority))||((a.due||"9999-99").localeCompare(b.due||"9999-99"))||(((a.time!=null?a.time:1e9))-((b.time!=null?b.time:1e9))));
+    if(!sorted.length) listEl.innerHTML=`<div class="proj-empty">Nincs feladat — kattints a „+ feladat"-ra.</div>`;
+    else sorted.forEach(t=>{
+      const kind=BLOCK_CATS[t.kind]?t.kind:"task"; const tp=t.priority||"normal";
+      const subs=t.subtasks||[]; const doneS=subs.filter(s=>s.done).length;
+      const row=document.createElement("div"); row.className="tv-task"+(t.done?" done":"");
+      row.innerHTML=`<button class="check" aria-label="Kész">${t.done?"✓":""}</button>`+
+        `<span class="kdot k-${kind}"></span>`+
+        `<div class="tv-ttl">${esc(t.title)}</div>`+
+        `<div class="tv-meta">`+
+          (tp==="high"?`<span class="prio-badge high">Magas</span>`:(tp==="low"?`<span class="prio-badge low">Alacsony</span>`:""))+
+          (subs.length?`<span class="sub-badge">☑ ${doneS}/${subs.length}</span>`:"")+
+        `</div>`+
+        `<div class="tv-due">${t.due?dueChip(t):`<span class="tv-nodue">nincs dátum</span>`}</div>`;
+      row.querySelector(".check").onclick=(e)=>{e.stopPropagation();toggleTaskDone(t.id);};
+      row.onclick=()=>editTask(t.id);
+      listEl.appendChild(row);
+    });
+    card.appendChild(listEl);
+    wrap.appendChild(card);
+  });
+  board.appendChild(wrap);
+}
+function dueChip(t){
+  const [y,mo,d]=t.due.split("-").map(Number);
+  const dObj=new Date(Date.UTC(y,mo-1,d,12));
+  const timePart=typeof t.time==="number"?(" · "+hm(t.time)):"";
+  return `<span class="tv-duechip">${mo}. ${d}.${timePart} <small>${relDay(dObj)}</small></span>`;
+}
+function addProject(){const name=prompt("Új projekt neve:");if(name&&name.trim()){const ps=loadProjects();const p={id:uid(),name:name.trim(),kind:getLastKind()};ps.push(p);saveProjects(ps);if(SP.connected)spWriteProject(p);render();}}
+function renameProject(id){const ps=loadProjects();const p=ps.find(x=>x.id===id);if(!p)return;const name=prompt("Projekt neve:",p.name);if(name&&name.trim()){p.name=name.trim();saveProjects(ps);if(SP.connected)spWriteProject(p);render();}}
+function removeProject(id){const inProj=loadTasks().filter(t=>t.projectId===id);if(inProj.length && !confirm("A projektben "+inProj.length+" feladat van. Törlöd a projektet a feladataival együtt?"))return;saveTasks(loadTasks().filter(t=>t.projectId!==id));saveProjects(loadProjects().filter(p=>p.id!==id));if(SP.connected){inProj.forEach(t=>spDeleteTask(t.id));spDeleteProject(id);}render();}
+
+/* ---------- Feladat szerkesztő ---------- */
+function parseTimeInput(v){if(!v||v.indexOf(":")<0)return 540;const p=v.split(":");return (+p[0])*60+(+p[1]||0);}
+function editTask(id){const t=taskById(id);if(t)showTaskModal(t);}
+function newTask(prefill){showTaskModal(Object.assign({id:null,projectId:defaultProjectId(),title:"",done:false,due:null,time:null,dur:60,kind:getLastKind(),notes:"",priority:"normal",subtasks:[]},prefill||{}));}
+function showTaskModal(t){
+  const isNew=!t.id; const DURS=[15,30,45,60,90,120,180]; const PRIO_ORDER=["high","normal","low"];
+  let selKind=BLOCK_CATS[t.kind]?t.kind:"task", selDur=t.dur||60, hasTime=typeof t.time==="number", selProj=t.projectId||defaultProjectId(), selPrio=PRIOS[t.priority]?t.priority:"normal";
+  let subs=(t.subtasks||[]).map(s=>({title:s.title,done:!!s.done}));
+  const projects=ensureSeed();
+  const m=document.getElementById("modal");
+  m.innerHTML=
+    `<button class="m-close" id="mClose">×</button>`+
+    `<div class="m-cat">Feladat</div>`+
+    `<h3 style="margin-bottom:8px">${isNew?"Új feladat":"Feladat szerkesztése"}</h3>`+
+    `<div class="field"><label for="tkTitle">Megnevezés</label><input class="te-title" id="tkTitle" type="text" maxlength="160" value="${esc(t.title)}" placeholder="Mit kell elvégezni?"></div>`+
+    `<div class="field"><label for="tkProj">Projekt</label><select class="te-title" id="tkProj">`+
+      projects.map(p=>`<option value="${p.id}"${p.id===selProj?" selected":""}>${esc(p.name)}</option>`).join("")+
+    `</select></div>`+
+    `<div class="field"><label>Kategória</label><div class="cat-opts" id="tkCat">`+
+      BLOCK_ORDER.map(k=>`<button type="button" data-k="${k}" class="cat-chip k-${k}${k===selKind?" sel":""}">${BLOCK_CATS[k].label}</button>`).join("")+
+    `</div></div>`+
+    `<div class="field"><label>Prioritás</label><div class="cat-opts" id="tkPrio">`+
+      PRIO_ORDER.map(p=>`<button type="button" data-p="${p}" class="prio-chip prio-${p}${p===selPrio?" sel":""}">${PRIOS[p].label}</button>`).join("")+
+    `</div></div>`+
+    `<div class="field"><label for="tkDue">Határidő / nap</label><input class="te-time" id="tkDue" type="date" value="${t.due||""}"></div>`+
+    `<label class="te-done" style="margin-top:12px"><input type="checkbox" id="tkTimed" ${hasTime?"checked":""}> Időpontot is adok (megjelenik a naptár idővonalán)</label>`+
+    `<div id="tkTimeWrap" style="${hasTime?"":"display:none"}">`+
+      `<div class="field"><label for="tkTime">Kezdés</label><input class="te-time" id="tkTime" type="time" step="300" value="${hm(hasTime?t.time:540)}"></div>`+
+      `<div class="field"><label>Hossz</label><div class="dur-opts" id="tkDur">`+
+        DURS.map(x=>`<button type="button" data-d="${x}" class="${x===selDur?"sel":""}">${x<60?x+" p":(x%60?Math.floor(x/60)+" ó "+(x%60)+" p":x/60+" ó")}</button>`).join("")+
+      `</div></div>`+
+    `</div>`+
+    `<div class="field"><label>Alfeladatok</label><div class="subs" id="tkSubs"></div>`+
+      `<div class="sub-add"><input id="tkSubInput" type="text" maxlength="120" placeholder="Új alfeladat…"><button type="button" id="tkSubAdd">+</button></div></div>`+
+    `<label class="te-done"><input type="checkbox" id="tkDone" ${t.done?"checked":""}> Kész (fő feladat)</label>`+
+    `<div class="m-actions">`+
+      `<button class="primary" id="tkSave">${isNew?"Hozzáadás":"Mentés"}</button>`+
+      (!isNew?`<button class="ghost" id="tkDelete" style="color:var(--now)">Törlés</button>`:"")+
+    `</div>`;
+  function renderSubs(){
+    const c=document.getElementById("tkSubs");
+    if(!subs.length){c.innerHTML=`<div class="sub-empty">Nincs alfeladat.</div>`;return;}
+    c.innerHTML="";
+    subs.forEach((s,i)=>{
+      const r=document.createElement("div"); r.className="sub-row"+(s.done?" done":"");
+      r.innerHTML=`<button type="button" class="sub-check">${s.done?"✓":""}</button><span class="sub-txt">${esc(s.title)}</span><button type="button" class="sub-del" aria-label="Törlés">×</button>`;
+      r.querySelector(".sub-check").onclick=()=>{subs[i].done=!subs[i].done;renderSubs();};
+      r.querySelector(".sub-del").onclick=()=>{subs.splice(i,1);renderSubs();};
+      c.appendChild(r);
+    });
+  }
+  function addSub(){const inp=document.getElementById("tkSubInput");const v=inp.value.trim();if(!v)return;subs.push({title:v,done:false});inp.value="";renderSubs();inp.focus();}
+  renderSubs();
+  m.querySelectorAll("#tkCat button").forEach(b=>b.onclick=()=>{selKind=b.dataset.k;m.querySelectorAll("#tkCat button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  m.querySelectorAll("#tkPrio button").forEach(b=>b.onclick=()=>{selPrio=b.dataset.p;m.querySelectorAll("#tkPrio button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  m.querySelectorAll("#tkDur button").forEach(b=>b.onclick=()=>{selDur=+b.dataset.d;m.querySelectorAll("#tkDur button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+  document.getElementById("tkSubAdd").onclick=addSub;
+  document.getElementById("tkSubInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addSub();}});
+  document.getElementById("tkTimed").onchange=(e)=>{document.getElementById("tkTimeWrap").style.display=e.target.checked?"":"none";};
+  document.getElementById("mClose").onclick=closeModal;
+  document.getElementById("tkSave").onclick=()=>{
+    const title=document.getElementById("tkTitle").value.trim();
+    if(!title){document.getElementById("tkTitle").focus();return;}
+    const timed=document.getElementById("tkTimed").checked;
+    let due=document.getElementById("tkDue").value||null;
+    if(timed&&!due) due=currentDayKey();
+    upsertTask({id:t.id||uid(),projectId:document.getElementById("tkProj").value,title,
+      done:document.getElementById("tkDone").checked,due,
+      time: timed?parseTimeInput(document.getElementById("tkTime").value):null, dur:selDur, kind:selKind,
+      priority:selPrio, subtasks:subs, notes:t.notes||""});
+    setLastKind(selKind); closeModal(); render();
+  };
+  const del=document.getElementById("tkDelete"); if(del) del.onclick=()=>{deleteTask(t.id);closeModal();render();};
+  document.getElementById("modalBg").classList.add("open");
+  setTimeout(()=>{const el=document.getElementById("tkTitle");if(el&&isNew)el.focus();},30);
+}
+
+/* ---------- Esemény modal ---------- */
+function openModal(ev){
+  const l=local(ev.sd); const m=document.getElementById("modal");
+  const dur=ev.endMin-ev.startMin; const durTxt=ev.allday?"egész nap":(dur>=60?`${Math.floor(dur/60)} ó ${dur%60?dur%60+" p":""}`.trim():`${dur} perc`);
+  m.innerHTML=
+    `<button class="m-close" id="mClose" aria-label="Bezárás">×</button>`+
+    `<div class="m-cat">${CAT_LABEL[ev.cat]}${ev.tent?" · bizonytalan":""}</div>`+
+    `<h3>${esc(ev.t)}</h3>`+
+    `<div class="m-row"><span class="m-ico">🗓️</span><span class="m-val">${HU_DOW[dowOf(ev.sd)]}, ${l.y}. ${HU_MON[l.mo-1]} ${l.d}.</span></div>`+
+    `<div class="m-row"><span class="m-ico">⏰</span><span class="m-val">${ev.allday?"Egész nap":hm(ev.startMin)+" – "+hm(ev.endMin)} <span style="color:var(--muted)">· ${durTxt}</span></span></div>`+
+    (ev.loc?`<div class="m-row"><span class="m-ico">${ev.link?"🔗":"📍"}</span><span class="m-val">${ev.link?`<a href="${ev.link}" target="_blank" rel="noopener">${esc(ev.loc)} megnyitása</a>`:esc(ev.loc)}</span></div>`:"")+
+    `<div class="m-row"><span class="m-ico">👤</span><span class="m-val">Szervező: ${ev.org==="én"?"én":esc(ev.org||"—")}${ev.att?` · Résztvevők: ${ev.att.map(esc).join(", ")}`:""}</span></div>`+
+    `<div class="m-actions">`+
+      (ev.link?`<a href="${ev.link}" target="_blank" rel="noopener">Csatlakozás</a>`:"")+
+      (ev.web?`<a class="ghost" href="${ev.web}" target="_blank" rel="noopener">Megnyitás Outlookban</a>`:"")+
+    `</div>`;
+  document.getElementById("modalBg").classList.add("open");
+  document.getElementById("mClose").onclick=closeModal;
+}
+function closeModal(){document.getElementById("modalBg").classList.remove("open");}
+document.getElementById("modalBg").onclick=e=>{if(e.target.id==="modalBg")closeModal();};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();closeSettings();}});
+
+/* ---------- Navigáció ---------- */
+document.getElementById("viewDay").onclick=()=>{if(view!=="day"){const[y,mo,d]=selectedKey.split("-").map(Number);cursor=new Date(Date.UTC(y,mo-1,d,12));}view="day";render();};
+document.getElementById("viewWeek").onclick=()=>{view="week";render();};
+document.getElementById("viewMonth").onclick=()=>{view="month";render();};
+document.getElementById("viewTasks").onclick=()=>{view="tasks";render();};
+document.getElementById("prev").onclick=()=>{cursor=view==="month"?shiftMonth(cursor,-1):shiftDays(cursor,view==="week"?-7:-1);if(view==="day")selectedKey=keyOf(cursor);render();};
+document.getElementById("next").onclick=()=>{cursor=view==="month"?shiftMonth(cursor,1):shiftDays(cursor,view==="week"?7:1);if(view==="day")selectedKey=keyOf(cursor);render();};
+document.getElementById("today").onclick=()=>{cursor=new Date();selectedKey=keyOf(cursor);render();};
+
+/* ---------- Téma ---------- */
+document.getElementById("themeBtn").onclick=()=>{
+  const root=document.documentElement; const cur=root.getAttribute("data-theme");
+  const isDark = cur ? cur==="dark" : matchMedia("(prefers-color-scheme:dark)").matches;
+  root.setAttribute("data-theme",isDark?"light":"dark");
+};
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+/* ============================================================ init ============================================================ */
+(async function boot(){
+  // Ha ez az MSAL bejelentkező felugró ablak (a Microsoft ide irányít vissza),
+  // NE bootoljuk újra az appot – az MSAL a fő ablakból olvassa ki a választ.
+  try{
+    const nested=(window.opener && window.opener!==window) || (window.parent && window.parent!==window);
+    if(nested && /[?#&](code|error|state|session_state)=/.test(location.href)) return;
+  }catch(e){}
+  ensureSeed(); migrateTodos();
+  ingest(SNAPSHOT);
+  setStatus("","Demó adatok","Beépített pillanatkép · nincs bejelentkezve");
+  updateSyncButtons();
+  render();
+  // Visszatérés a Microsoft bejelentkezésből (redirect) VAGY meglévő munkamenet
+  if(loadCfg()){
+    try{
+      if(await ensurePca()){
+        let resp=null;
+        try{ resp=await pca.handleRedirectPromise(); }
+        catch(err){ console.error(err); setStatus("err","Bejelentkezés sikertelen",(err.errorMessage||err.message||"").slice(0,150)); updateSyncButtons(); }
+        if(resp&&resp.account) account=resp.account;
+        else { const a=pca.getAllAccounts(); if(a.length) account=a[0]; }
+        if(account){ pca.setActiveAccount(account); live=true; updateSyncButtons(); await refresh(true); startAutoRefresh(); }
+      }
+    }catch(e){ console.warn("auto-connect kihagyva",e); }
+  }
+})();
+</script>

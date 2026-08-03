@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <title>Qualitas Időnyilvántartó</title>
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="description" content="Hangvezérelt időnyilvántartó – diktáld be a munkát." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Idő" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="app-head">
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      </div>
+      <div>
+        <h1>Időnyilvántartó</h1>
+        <p>Diktáld be a munkát – gyorsan.</p>
+      </div>
+    </header>
+
+    <div class="summary">
+      <div class="stat"><div class="k">Ma</div><div class="v"><span id="sumToday">0</span> ó</div></div>
+      <div class="stat"><div class="k">Ezen a héten</div><div class="v"><span id="sumWeek">0</span> ó</div></div>
+      <div class="stat"><div class="k">Bejegyzés</div><div class="v" id="sumCount">0</div></div>
+    </div>
+
+    <div class="card">
+      <button id="dictateAll" class="dictate-btn" type="button">
+        <svg class="mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+        <span id="dictateAllLabel">Diktálás – mondj el mindent</span>
+      </button>
+      <p class="hint" id="speechHint">Pl.: „Emika Kft, két és fél óra, tesztelés" – a vesszők segítenek a szétválasztásban. A mezőket utána javíthatod.</p>
+
+      <div class="field">
+        <label for="proj">Projekt</label>
+        <div class="row">
+          <input id="proj" type="text" inputmode="text" placeholder="pl. Kovács Kft." autocomplete="off" />
+          <button class="mic-mini" data-target="proj" type="button" aria-label="Projekt diktálása">🎤</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="hours">Idő (óra)</label>
+        <div class="row">
+          <input id="hours" type="text" inputmode="decimal" placeholder="pl. 2,5" autocomplete="off" />
+          <button class="mic-mini" data-target="hours" type="button" aria-label="Idő diktálása">🎤</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="act">Tevékenység</label>
+        <div class="row">
+          <input id="act" type="text" inputmode="text" placeholder="pl. tesztelés, egyeztetés" autocomplete="off" />
+          <button class="mic-mini" data-target="act" type="button" aria-label="Tevékenység diktálása">🎤</button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="clearBtn" class="btn btn-ghost" type="button">Törlés</button>
+        <button id="saveBtn" class="btn btn-primary" type="button">Mentés</button>
+      </div>
+
+      <details class="settings">
+        <summary>Felhő-szinkron – Google Táblázat <span id="syncBadge" class="badge">kikapcsolva</span></summary>
+        <p class="hint">Illeszd be a Google Apps Script webalkalmazásod URL-jét (a beállítást lásd a README-ben). Ekkor minden mentés közvetlenül a Google Táblázatodba is bekerül. Enélkül minden a telefonon marad.</p>
+        <div class="field"><label>Apps Script webalkalmazás URL</label>
+          <input id="cfgUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" /></div>
+        <div class="field"><label>Titkos kulcs (opcionális)</label>
+          <input id="cfgToken" type="text" placeholder="pl. valami-titok-123" autocomplete="off" /></div>
+        <div class="actions">
+          <button id="cfgTest" class="btn btn-ghost" type="button">Teszt sor</button>
+          <button id="cfgSave" class="btn btn-ghost" type="button">Beállítás mentése</button>
+        </div>
+      </details>
+    </div>
+
+    <div class="list-head">
+      <h2>Bejegyzések</h2>
+      <button id="exportBtn" class="link-btn" type="button">Exportálás (CSV)</button>
+    </div>
+    <div id="list"></div>
+
+    <p class="install-tip">Tipp: Safari → Megosztás → „Hozzáadás a főképernyőhöz", és appként indul.</p>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
